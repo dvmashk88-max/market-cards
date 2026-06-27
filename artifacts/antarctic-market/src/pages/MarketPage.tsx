@@ -124,14 +124,14 @@ export default function MarketPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
-            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-none"
+            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-[1.05]"
             style={{ textShadow: "0 0 80px rgba(124,58,237,0.5), 0 0 200px rgba(6,182,212,0.15)" }}
           >
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400">
-              Antarctic
+              Маркет
             </span>
             <br />
-            <span className="text-white">Market</span>
+            <span className="text-white">цифровых товаров</span>
           </motion.h1>
 
           {/* Subheadline */}
@@ -141,7 +141,17 @@ export default function MarketPage() {
             transition={{ delay: 0.18 }}
             className="text-lg sm:text-xl text-white/55 max-w-xl leading-relaxed"
           >
-            Маркет цифровых товаров внутри Arctic Wallet
+            Официальное приложение внутри Antarctic Wallet
+          </motion.p>
+
+          {/* Disclaimer */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.22 }}
+            className="text-xs text-white/35 max-w-md leading-relaxed"
+          >
+            Этот сайт является официальной витриной приложения. Для совершения покупок откройте Маркет цифровых товаров внутри Antarctic Wallet.
           </motion.p>
 
           {/* Benefits list */}
@@ -176,7 +186,7 @@ export default function MarketPage() {
               data-testid="button-open-wallet"
             >
               <ExternalLink className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-              <span>Открыть в Antarctic Wallet</span>
+              <span>Открыть Маркет цифровых товаров в Antarctic Wallet</span>
             </button>
             <button
               onClick={() => {
@@ -456,7 +466,7 @@ export default function MarketPage() {
       </div>
 
       <footer className="py-8 text-center text-sm text-white/40 border-t border-white/5 mt-12 bg-black/20">
-        <p>© 2025 Antarctic Market · Powered by Antarctic Wallet</p>
+        <p>© 2025 Маркет цифровых товаров · Powered by Antarctic Wallet</p>
       </footer>
 
       {/* Preview Dialog */}
