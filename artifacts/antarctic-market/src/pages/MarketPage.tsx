@@ -11,7 +11,14 @@ import {
   ChevronRight,
   Wallet,
   Activity,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  Zap,
+  Globe,
+  Headphones,
+  Check,
+  ArrowRight,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -83,38 +90,150 @@ export default function MarketPage() {
         <div className="absolute top-[40%] left-[60%] w-[30%] h-[30%] bg-indigo-600/10 blur-[100px] rounded-full mix-blend-screen" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero Section */}
-        <header className="mb-16 text-center lg:text-left flex flex-col items-center lg:items-start space-y-6">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
+      {/* ── HERO ── */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden">
+        {/* Hero-specific glow orbs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-purple-700/20 blur-[140px] rounded-full" />
+          <div className="absolute top-[30%] left-[20%] w-[350px] h-[350px] bg-cyan-600/15 blur-[100px] rounded-full" />
+          <div className="absolute bottom-[20%] right-[15%] w-[300px] h-[300px] bg-indigo-600/15 blur-[100px] rounded-full" />
+          {/* subtle grid */}
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.15) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.15) 1px,transparent 1px)",
+              backgroundSize: "60px 60px",
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center space-y-8 max-w-4xl mx-auto">
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center space-x-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 backdrop-blur-md"
+            className="inline-flex items-center space-x-2 bg-white/5 border border-white/10 rounded-full px-5 py-2 backdrop-blur-md"
           >
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs font-medium tracking-wide text-cyan-50">Работает в Antarctic Wallet</span>
+            <span className="text-xs font-semibold tracking-widest text-cyan-200 uppercase">Работает в Antarctic Wallet</span>
           </motion.div>
-          
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
+
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl md:text-6xl font-black tracking-tight"
-            style={{ textShadow: "0 0 40px rgba(124, 58, 237, 0.4)" }}
+            transition={{ delay: 0.08 }}
+            className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-none"
+            style={{ textShadow: "0 0 80px rgba(124,58,237,0.5), 0 0 200px rgba(6,182,212,0.15)" }}
           >
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">Маркет</span> цифровых товаров
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400">
+              Antarctic
+            </span>
+            <br />
+            <span className="text-white">Market</span>
           </motion.h1>
-          
-          <motion.p 
+
+          {/* Subheadline */}
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="max-w-2xl text-lg text-white/60 leading-relaxed"
+            transition={{ delay: 0.18 }}
+            className="text-lg sm:text-xl text-white/55 max-w-xl leading-relaxed"
           >
-            Витрина цифровых товаров для Telegram, Steam, подарочных карт и игровых пополнений — внутри Antarctic Wallet
+            Маркет цифровых товаров внутри Arctic Wallet
           </motion.p>
-        </header>
 
+          {/* Benefits list */}
+          <motion.ul
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.26 }}
+            className="flex flex-col sm:flex-row gap-4 sm:gap-8 text-sm text-white/70"
+          >
+            {[
+              "Мгновенная выдача цифровых товаров",
+              "Безопасная оплата через Antarctic Wallet",
+              "Популярные сервисы и игры",
+            ].map((text) => (
+              <li key={text} className="flex items-center space-x-2">
+                <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>{text}</span>
+              </li>
+            ))}
+          </motion.ul>
+
+          {/* CTA buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.34 }}
+            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
+          >
+            <button
+              onClick={handleBuy}
+              className="group flex items-center justify-center space-x-2 px-8 py-4 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 shadow-[0_0_30px_rgba(124,58,237,0.4)] hover:shadow-[0_0_45px_rgba(124,58,237,0.6)] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
+              data-testid="button-open-wallet"
+            >
+              <ExternalLink className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              <span>Открыть в Antarctic Wallet</span>
+            </button>
+            <button
+              onClick={() => {
+                document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex items-center justify-center space-x-2 px-8 py-4 rounded-2xl font-bold text-base text-white/80 bg-white/5 border border-white/15 hover:bg-white/10 hover:border-purple-400/40 backdrop-blur-md transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
+              data-testid="button-catalog"
+            >
+              <span>Каталог товаров</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Feature cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.44 }}
+          className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-4 mt-20 w-full max-w-5xl mx-auto px-4"
+        >
+          {[
+            { icon: Shield, label: "Безопасная оплата", desc: "Все транзакции защищены Antarctic Wallet", color: "from-purple-500 to-violet-600" },
+            { icon: Zap,    label: "Мгновенная выдача", desc: "Товар поступает сразу после оплаты",    color: "from-cyan-500 to-blue-600" },
+            { icon: Globe,  label: "Популярные сервисы", desc: "Steam, Apple, Telegram, игры и другое", color: "from-indigo-500 to-purple-600" },
+            { icon: Headphones, label: "Поддержка 24/7", desc: "Помогаем решить любой вопрос",        color: "from-teal-500 to-cyan-600" },
+          ].map(({ icon: Icon, label, desc, color }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.07 }}
+              className="group relative flex flex-col items-center text-center p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-xl hover:bg-white/[0.07] hover:border-white/20 hover:shadow-[0_0_30px_rgba(124,58,237,0.12)] transition-all duration-300"
+              data-testid={`card-feature-${i}`}
+            >
+              <div className={`w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-gradient-to-br ${color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                <Icon className="w-5 h-5 text-white" />
+              </div>
+              <p className="text-sm font-bold text-white mb-1">{label}</p>
+              <p className="text-xs text-white/45 leading-relaxed">{desc}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Scroll hint */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center space-y-2"
+        >
+          <div className="w-px h-10 bg-gradient-to-b from-transparent to-white/20" />
+          <span className="text-[10px] uppercase tracking-widest text-white/25">Прокрутите вниз</span>
+        </motion.div>
+      </section>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" id="catalog">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main Content Area */}
           <div className="flex-1 space-y-8">
