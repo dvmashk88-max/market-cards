@@ -436,16 +436,6 @@ export default function HomePage() {
 
           <div className="relative z-10 max-w-5xl mx-auto space-y-7 flex flex-col items-center">
 
-            {/* badge */}
-            <motion.div
-              initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }}
-              className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full"
-              style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", backdropFilter:"blur(16px)" }}
-            >
-              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              <span className="text-xs font-bold tracking-widest uppercase" style={{ color:"#e9d5ff" }}>Платформа MAX · Официальный маркет</span>
-            </motion.div>
-
             {/* headline */}
             <motion.h1
               initial={{ opacity:0, y:26 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.55, delay:0.08 }}

@@ -47,12 +47,6 @@ export default function Header() {
             <button onClick={() => handleNavClick("contacts")} className="text-sm font-medium text-white/70 hover:text-white transition-colors" data-testid="nav-contacts">Контакты</button>
           </nav>
 
-          <div className="hidden md:flex items-center">
-            <div className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-400/30 text-blue-400 text-xs font-bold uppercase tracking-wider cursor-default" data-testid="badge-soon">
-              Скоро в MAX
-            </div>
-          </div>
-
           <button
             className="md:hidden p-2 text-white/70 hover:text-white"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -70,11 +64,6 @@ export default function Header() {
             <button onClick={() => handleNavClick("how")} className="block w-full text-left text-white/80 hover:text-white py-2" data-testid="mobile-nav-how">Как работает</button>
             <button onClick={() => handleNavClick("faq")} className="block w-full text-left text-white/80 hover:text-white py-2" data-testid="mobile-nav-faq">FAQ</button>
             <button onClick={() => handleNavClick("contacts")} className="block w-full text-left text-white/80 hover:text-white py-2" data-testid="mobile-nav-contacts">Контакты</button>
-            <div className="pt-2">
-              <div className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-400/30 text-blue-400 text-xs font-bold uppercase tracking-wider cursor-default">
-                Скоро в MAX
-              </div>
-            </div>
           </div>
         </div>
       )}
