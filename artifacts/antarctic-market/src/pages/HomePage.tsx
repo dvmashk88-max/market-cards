@@ -246,7 +246,7 @@ function OrderPanel({ prod, filtered, onSelect, email, onEmail }: {
           }}
         >
           <Sparkles className="w-4 h-4" />
-          <span>MAX</span>
+          <span>Перейти в маркет на MAX</span>
         </a>
 
       </div>
@@ -346,7 +346,7 @@ export default function HomePage() {
                 style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
               >
                 <Sparkles className="w-5 h-5" />
-                <span>MAX</span>
+                <span>Перейти в маркет на MAX</span>
               </a>
               <button
                 onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior:"smooth" })}
