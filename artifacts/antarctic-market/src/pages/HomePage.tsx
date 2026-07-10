@@ -26,7 +26,7 @@ const PRODUCTS: Product[] = [
   { id: 1,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Турция",    flag: "🇹🇷", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#6b7280,#374151)", Icon: Apple,   tag: "Популярно" },
   { id: 2,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · США",       flag: "🇺🇸", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#38bdf8,#0284c7)", Icon: Apple },
   { id: 3,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Россия",    flag: "🇷🇺", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#f87171,#be123c)", Icon: Apple },
-  { id: 4,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Индонезия", flag: "🇮🇩", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#fb923c,#d97706)", Icon: Apple },
+  { id: 4,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Индия", flag: "🇮🇳", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#fb923c,#d97706)", Icon: Apple },
   { id: 5,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · TR",     flag: "🇹🇷", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#22d3ee,#0891b2)", Icon: Monitor, tag: "Хит" },
   { id: 6,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · USD",    flag: "🇺🇸", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#818cf8,#4338ca)", Icon: Monitor },
   { id: 7,  cat: "Telegram", title: "Telegram Stars",     sub: "Звёзды Telegram · любой аккаунт",   flag: "⭐", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#38bdf8,#2563eb)", Icon: Send,    tag: "Популярно" },
