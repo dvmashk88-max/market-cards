@@ -258,22 +258,20 @@ function OrderPanel({ prod, price, onPrice, email, onEmail }: {
 
         {/* buttons */}
         <div className="space-y-2.5">
-          <button
-            disabled={!ready}
+          <a
+            href="https://max-bot-production-6049.up.railway.app"
+            target="_blank"
+            rel="noopener noreferrer"
             className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200"
-            style={ready ? {
+            style={{
               background: "linear-gradient(90deg,#7c3aed,#06b6d4)",
               boxShadow: "0 0 24px rgba(124,58,237,0.40)",
-            } : {
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.20)",
-              cursor: "default",
+              textDecoration: "none",
             }}
           >
             <Sparkles className="w-4 h-4" />
-            <span>Скоро в MAX</span>
-          </button>
+            <span>MAX</span>
+          </a>
 
           <button
             onClick={() => ready && setPreview(!preview)}
@@ -329,68 +327,6 @@ function OrderPanel({ prod, price, onPrice, email, onEmail }: {
   );
 }
 
-/* — MAX Status Panel — */
-function MaxStatusPanel() {
-  const [spinning, setSpinning] = useState(false);
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
-      <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-sm font-bold text-white">Статус MAX</span>
-        </div>
-        <button
-          onClick={() => { setSpinning(true); setTimeout(() => setSpinning(false), 1200); }}
-          className="p-1.5 rounded-lg transition-all"
-          style={{ color: "rgba(255,255,255,0.30)" }}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${spinning ? "animate-spin" : ""}`} />
-        </button>
-      </div>
-
-      <div className="px-5 py-4 space-y-3 text-xs">
-        {[
-          { label: "В MAX",          right: <span style={{ color: "rgba(255,255,255,0.28)" }}>—</span> },
-          { label: "Состояние",      right: <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-amber-400" /><span className="font-semibold text-amber-400">Ожидание</span></span> },
-          { label: "ID приложения",  right: <span className="flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.22)" }} /><span style={{ color: "rgba(255,255,255,0.28)" }}>ожидается</span></span> },
-          { label: "Источник",       right: <span className="flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5 text-rose-400" /><span className="text-rose-400">не найден</span></span> },
-        ].map(({ label, right }) => (
-          <div key={label} className="flex items-center justify-between">
-            <span style={{ color: "rgba(255,255,255,0.42)" }}>{label}</span>
-            {right}
-          </div>
-        ))}
-
-        {/* address blocks */}
-        {[
-          { label: "Адрес приложения", val: "demo.max.market", cyan: true },
-          { label: "Адрес пользователя", val: "ожидается подключение…", dim: true },
-        ].map(({ label, val, cyan, dim }) => (
-          <div key={label} className="rounded-xl px-3 py-2.5 space-y-1"
-            style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <p className="text-[10px] uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.30)" }}>{label}</p>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-mono truncate"
-                style={{ color: cyan ? "rgba(103,232,249,0.80)" : dim ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.55)" }}>
-                {val}
-              </p>
-              {cyan && (
-                <button className="shrink-0 p-1 rounded transition-colors" style={{ color: "rgba(255,255,255,0.22)" }}>
-                  <Copy className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-
-        <button className="w-full py-2.5 rounded-xl text-xs font-bold transition-all duration-200"
-          style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", color: "#c4b5fd" }}>
-          Подключить MAX
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /* ══════════════════════════════════════════════════════════════ Page */
 
@@ -480,13 +416,16 @@ export default function HomePage() {
               initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5, delay:0.34 }}
               className="flex flex-col sm:flex-row gap-3"
             >
-              <div
-                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl font-bold text-base text-white cursor-default select-none"
-                style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)" }}
+              <a
+                href="https://max-bot-production-6049.up.railway.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl font-bold text-base text-white"
+                style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
               >
                 <Sparkles className="w-5 h-5" />
-                <span>Скоро в MAX</span>
-              </div>
+                <span>MAX</span>
+              </a>
               <button
                 onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior:"smooth" })}
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300"
@@ -606,7 +545,6 @@ export default function HomePage() {
               {/* right: sticky sidebar */}
               <div className="flex flex-col gap-4" style={{ position:"sticky", top:"88px" }}>
                 <OrderPanel prod={selected} price={price} onPrice={setPrice} email={email} onEmail={setEmail} />
-                <MaxStatusPanel />
               </div>
             </div>
           </div>
