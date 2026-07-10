@@ -448,7 +448,7 @@ export default function HomePage() {
             {[
               { Icon: Shield,    label:"Безопасная оплата",   desc:"Сертифицированные системы",      grad:"linear-gradient(135deg,#7c3aed,#4f46e5)" },
               { Icon: Zap,       label:"Мгновенная выдача",   desc:"Код придёт в течение 5 минут",   grad:"linear-gradient(135deg,#06b6d4,#2563eb)" },
-              { Icon: Globe,     label:"Все регионы",         desc:"TR, US, RU, EU и другие",        grad:"linear-gradient(135deg,#6366f1,#7c3aed)" },
+              { Icon: Globe,     label:"Все регионы",         desc:"TR, US, RU, IN и другие",        grad:"linear-gradient(135deg,#6366f1,#7c3aed)" },
               { Icon: CheckCircle2, label:"Поддержка 24/7",   desc:"Ответим на любой вопрос",        grad:"linear-gradient(135deg,#0d9488,#06b6d4)" },
             ].map(({ Icon, label, desc, grad }, i) => (
               <motion.div
