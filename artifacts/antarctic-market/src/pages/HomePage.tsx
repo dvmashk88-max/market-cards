@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Apple, Monitor, Gamepad2, Send, ShoppingCart, Eye,
-  CheckCircle2, Clock, AlertCircle, Copy, RefreshCw,
-  Zap, Shield, Globe, ChevronDown, ArrowRight, Sparkles,
+  Apple, Monitor, Gamepad2, Send, ShoppingCart,
+  CheckCircle2, Zap, Shield, Globe, ChevronDown, ArrowRight, Sparkles,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -16,23 +15,22 @@ type Product = {
   title: string;
   sub: string;
   flag: string;
-  prices: number[];
   iconBg: string;
   Icon: React.ElementType;
   tag?: string;
 };
 
 const PRODUCTS: Product[] = [
-  { id: 1,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Турция",    flag: "🇹🇷", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#6b7280,#374151)", Icon: Apple,   tag: "Популярно" },
-  { id: 2,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · США",       flag: "🇺🇸", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#38bdf8,#0284c7)", Icon: Apple },
-  { id: 3,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Россия",    flag: "🇷🇺", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#f87171,#be123c)", Icon: Apple },
-  { id: 4,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Индия", flag: "🇮🇳", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#fb923c,#d97706)", Icon: Apple },
-  { id: 5,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · TR",     flag: "🇹🇷", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#22d3ee,#0891b2)", Icon: Monitor, tag: "Хит" },
-  { id: 6,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · USD",    flag: "🇺🇸", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#818cf8,#4338ca)", Icon: Monitor },
-  { id: 7,  cat: "Telegram", title: "Telegram Stars",     sub: "Звёзды Telegram · любой аккаунт",   flag: "⭐", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#38bdf8,#2563eb)", Icon: Send,    tag: "Популярно" },
-  { id: 8,  cat: "Telegram", title: "Telegram Premium",   sub: "Подписка Telegram Premium",          flag: "👑", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#a78bfa,#7c3aed)", Icon: Send },
-  { id: 9,  cat: "Игры",     title: "Game Balance",       sub: "Игровой баланс · PUBG Mobile",       flag: "🎮", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#4ade80,#15803d)", Icon: Gamepad2 },
-  { id: 10, cat: "Игры",     title: "Game Balance",       sub: "Игровой баланс · Brawl Stars",       flag: "💎", prices: [500,1000,2500,5000], iconBg: "linear-gradient(135deg,#fbbf24,#b45309)", Icon: Gamepad2, tag: "Новинка" },
+  { id: 1,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Турция",  flag: "🇹🇷", iconBg: "linear-gradient(135deg,#6b7280,#374151)", Icon: Apple,    tag: "Популярно" },
+  { id: 2,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · США",     flag: "🇺🇸", iconBg: "linear-gradient(135deg,#38bdf8,#0284c7)", Icon: Apple },
+  { id: 3,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Россия",  flag: "🇷🇺", iconBg: "linear-gradient(135deg,#f87171,#be123c)", Icon: Apple },
+  { id: 4,  cat: "Apple",    title: "App Store & iTunes", sub: "Подарочная карта Apple · Индия",   flag: "🇮🇳", iconBg: "linear-gradient(135deg,#fb923c,#d97706)", Icon: Apple },
+  { id: 5,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · TR",   flag: "🇹🇷", iconBg: "linear-gradient(135deg,#22d3ee,#0891b2)", Icon: Monitor,  tag: "Хит" },
+  { id: 6,  cat: "Steam",    title: "Steam Wallet",       sub: "Пополнение кошелька Steam · USD",  flag: "🇺🇸", iconBg: "linear-gradient(135deg,#818cf8,#4338ca)", Icon: Monitor },
+  { id: 7,  cat: "Telegram", title: "Telegram Stars",     sub: "Звёзды Telegram · любой аккаунт", flag: "⭐",  iconBg: "linear-gradient(135deg,#38bdf8,#2563eb)", Icon: Send,     tag: "Популярно" },
+  { id: 8,  cat: "Telegram", title: "Telegram Premium",   sub: "Подписка Telegram Premium",        flag: "👑",  iconBg: "linear-gradient(135deg,#a78bfa,#7c3aed)", Icon: Send },
+  { id: 9,  cat: "Игры",     title: "Game Balance",       sub: "Игровой баланс · PUBG Mobile",     flag: "🎮",  iconBg: "linear-gradient(135deg,#4ade80,#15803d)", Icon: Gamepad2 },
+  { id: 10, cat: "Игры",     title: "Game Balance",       sub: "Игровой баланс · Brawl Stars",     flag: "💎",  iconBg: "linear-gradient(135deg,#fbbf24,#b45309)", Icon: Gamepad2, tag: "Новинка" },
 ];
 
 const CATS = [
@@ -41,13 +39,6 @@ const CATS = [
   { id: "Игры",     label: "Игры",     emoji: "🕹️" },
   { id: "Telegram", label: "Telegram", emoji: "✈️" },
 ];
-
-const PRICE_LABELS: Record<number, string> = {
-  500: "500 ₽",
-  1000: "1 000 ₽",
-  2500: "2 500 ₽",
-  5000: "5 000 ₽",
-};
 
 const FAQ_ITEMS = [
   {
@@ -141,20 +132,7 @@ function ProductCard({ p, selected, onSelect }: { p: Product; selected: boolean;
         <h3 className="text-sm font-bold text-white mb-1 leading-snug">
           {p.title}
         </h3>
-        <p className="text-xs mb-3 leading-snug" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
-        {/* price + status */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] mb-0.5" style={{ color: "rgba(255,255,255,0.28)" }}>от</p>
-            <p className="text-sm font-black" style={{ background: "linear-gradient(90deg,#c084fc,#67e8f9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {PRICE_LABELS[p.prices[0]]}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-semibold text-emerald-400">Актуально</span>
-          </div>
-        </div>
+        <p className="text-xs leading-snug" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
       </div>
 
       {/* selected footer bar */}
@@ -169,14 +147,16 @@ function ProductCard({ p, selected, onSelect }: { p: Product; selected: boolean;
   );
 }
 
-/* — Order Panel — */
-function OrderPanel({ prod, price, onPrice, email, onEmail }: {
-  prod: Product | null; price: number | null; onPrice: (n: number) => void;
-  email: string; onEmail: (s: string) => void;
-}) {
-  const [preview, setPreview] = useState(false);
-  const ready = !!(prod && price);
+const MAX_URL = "https://max-bot-production-6049.up.railway.app";
 
+/* — Order Panel — */
+function OrderPanel({ prod, filtered, onSelect, email, onEmail }: {
+  prod: Product | null;
+  filtered: Product[];
+  onSelect: (id: number) => void;
+  email: string;
+  onEmail: (s: string) => void;
+}) {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
       {/* header */}
@@ -185,49 +165,57 @@ function OrderPanel({ prod, price, onPrice, email, onEmail }: {
         <span className="text-sm font-bold text-white">Панель заказа</span>
       </div>
 
-      <div className="px-5 py-5 space-y-4">
-        {/* selected product */}
-        <div className="rounded-xl p-3 min-h-[64px] flex flex-col justify-center"
-          style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          {prod ? (
-            <>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-base leading-none">{prod.flag}</span>
-                <p className="text-sm font-bold text-white leading-tight">{prod.title}</p>
-              </div>
-              <p className="text-xs pl-7" style={{ color: "rgba(255,255,255,0.38)" }}>{prod.sub}</p>
-            </>
-          ) : (
-            <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.22)" }}>Выберите товар из каталога</p>
-          )}
-        </div>
+      <div className="px-5 py-5 space-y-5">
 
-        {/* denomination */}
-        {prod && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider mb-2.5" style={{ color: "rgba(255,255,255,0.35)" }}>Номинал</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-              {prod.prices.map((p) => (
+        {/* mini product cards */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+            {prod ? prod.cat : "Выберите товар"}
+          </p>
+          <div className="space-y-2">
+            {filtered.map((p) => {
+              const { Icon } = p;
+              const sel = prod?.id === p.id;
+              return (
                 <button
-                  key={p}
-                  onClick={() => onPrice(p)}
-                  className="py-2.5 rounded-xl text-xs font-bold transition-all duration-200"
-                  style={price === p ? {
-                    background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                    color: "#fff",
-                    boxShadow: "0 0 14px rgba(124,58,237,0.45)",
+                  key={p.id}
+                  onClick={() => onSelect(p.id)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left"
+                  style={sel ? {
+                    background: "rgba(124,58,237,0.14)",
+                    border: "1px solid rgba(124,58,237,0.50)",
+                    boxShadow: "0 0 16px rgba(124,58,237,0.15)",
                   } : {
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.09)",
-                    color: "rgba(255,255,255,0.55)",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
                   }}
                 >
-                  {PRICE_LABELS[p]}
+                  {/* colorful icon */}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md" style={{ background: p.iconBg }}>
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  {/* text */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate">{p.flag} {p.title}</p>
+                    <p className="text-[10px] truncate mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
+                  </div>
+                  {/* selected dot */}
+                  {sel && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#c084fc,#67e8f9)" }} />}
+                  {/* tag badge */}
+                  {!sel && p.tag && (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
+                      style={{ background: "rgba(124,58,237,0.20)", color: "#c4b5fd", border: "1px solid rgba(124,58,237,0.30)" }}>
+                      {p.tag}
+                    </span>
+                  )}
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+
+        {/* divider */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
 
         {/* email */}
         <div>
@@ -244,84 +232,23 @@ function OrderPanel({ prod, price, onPrice, email, onEmail }: {
           />
         </div>
 
-        {/* total */}
-        <div className="flex items-center justify-between py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <span className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>Итого</span>
-          {ready ? (
-            <span className="text-xl font-black" style={{ background: "linear-gradient(90deg,#c084fc,#67e8f9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              {PRICE_LABELS[price!]}
-            </span>
-          ) : (
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.20)" }}>—</span>
-          )}
-        </div>
+        {/* MAX block */}
+        <a
+          href={MAX_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
+          style={{
+            background: "linear-gradient(90deg,#7c3aed,#06b6d4)",
+            boxShadow: "0 0 28px rgba(124,58,237,0.45)",
+            textDecoration: "none",
+            display: "flex",
+          }}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>MAX</span>
+        </a>
 
-        {/* buttons */}
-        <div className="space-y-2.5">
-          <a
-            href="https://max-bot-production-6049.up.railway.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200"
-            style={{
-              background: "linear-gradient(90deg,#7c3aed,#06b6d4)",
-              boxShadow: "0 0 24px rgba(124,58,237,0.40)",
-              textDecoration: "none",
-            }}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>MAX</span>
-          </a>
-
-          <button
-            onClick={() => ready && setPreview(!preview)}
-            className="w-full py-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all duration-200"
-            style={ready ? {
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.11)",
-              color: "rgba(255,255,255,0.60)",
-              cursor: "pointer",
-            } : {
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              color: "rgba(255,255,255,0.18)",
-              cursor: "default",
-            }}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Предпросмотр заказа</span>
-          </button>
-        </div>
-
-        {/* preview block */}
-        <AnimatePresence initial={false}>
-          {preview && ready && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              className="overflow-hidden"
-            >
-              <div className="rounded-xl p-4 space-y-2.5"
-                style={{ background: "rgba(124,58,237,0.09)", border: "1px solid rgba(124,58,237,0.22)" }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#c4b5fd" }}>Предпросмотр заказа</p>
-                {[
-                  ["Товар", prod!.title],
-                  ["Регион", prod!.flag + " " + prod!.sub.split("·")[1]?.trim()],
-                  ["Номинал", PRICE_LABELS[price!]],
-                  ["Email", email || "не указан"],
-                  ["Статус", "Готов к оформлению"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3">
-                    <span className="text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>{k}</span>
-                    <span className="text-xs text-right" style={{ color: "rgba(255,255,255,0.78)" }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -333,7 +260,6 @@ function OrderPanel({ prod, price, onPrice, email, onEmail }: {
 export default function HomePage() {
   const [cat, setCat]           = useState("Apple");
   const [selId, setSelId]       = useState<number | null>(1);
-  const [price, setPrice]       = useState<number | null>(1000);
   const [email, setEmail]       = useState("");
 
   const filtered = PRODUCTS.filter((p) => p.cat === cat);
@@ -342,14 +268,10 @@ export default function HomePage() {
   const pickCat = (c: string) => {
     setCat(c);
     const first = PRODUCTS.find((p) => p.cat === c);
-    if (first) { setSelId(first.id); setPrice(first.prices[1]); }
+    if (first) setSelId(first.id);
   };
 
-  const pickProd = (id: number) => {
-    setSelId(id);
-    const prod = PRODUCTS.find((p) => p.id === id);
-    if (prod) setPrice(prod.prices[1]);
-  };
+  const pickProd = (id: number) => setSelId(id);
 
   return (
     <div className="min-h-screen bg-[#050818] text-white font-sans overflow-x-hidden">
@@ -530,7 +452,7 @@ export default function HomePage() {
                 <div className="flex flex-wrap gap-3 mt-5">
                   {[
                     { Icon:CheckCircle2, text:"Проверенные коды",     color:"text-emerald-400" },
-                    { Icon:Clock,        text:"Выдача за 1–5 минут",  color:"text-cyan-400" },
+                    { Icon:Zap,          text:"Выдача за 1–5 минут",  color:"text-cyan-400" },
                     { Icon:Shield,       text:"Официальные лицензии", color:"text-purple-400" },
                   ].map(({ Icon, text, color }) => (
                     <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-xl"
@@ -544,7 +466,7 @@ export default function HomePage() {
 
               {/* right: sticky sidebar */}
               <div className="flex flex-col gap-4" style={{ position:"sticky", top:"88px" }}>
-                <OrderPanel prod={selected} price={price} onPrice={setPrice} email={email} onEmail={setEmail} />
+                <OrderPanel prod={selected} filtered={filtered} onSelect={pickProd} email={email} onEmail={setEmail} />
               </div>
             </div>
           </div>
