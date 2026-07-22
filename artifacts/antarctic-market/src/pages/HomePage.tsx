@@ -147,7 +147,8 @@ function ProductCard({ p, selected, onSelect }: { p: Product; selected: boolean;
   );
 }
 
-const MAX_URL = "https://max-bot-production-6049.up.railway.app";
+const MAX_URL = "https://max.ru/id6321431962_1_bot";
+const TELEGRAM_URL = "https://t.me/marketcards163bot";
 
 /* — Order Panel — */
 function OrderPanel({ prod, filtered, onSelect, email, onEmail }: {
@@ -246,7 +247,7 @@ function OrderPanel({ prod, filtered, onSelect, email, onEmail }: {
           }}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Перейти в маркет на MAX</span>
+          <span>Перейти в MAX</span>
         </a>
 
       </div>
@@ -336,21 +337,33 @@ export default function HomePage() {
             {/* CTAs */}
             <motion.div
               initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5, delay:0.34 }}
-              className="flex flex-col sm:flex-row gap-3"
+              className="flex flex-col gap-3 lg:flex-row"
             >
-              <a
-                href="https://max-bot-production-6049.up.railway.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl font-bold text-base text-white"
-                style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
-              >
-                <Sparkles className="w-5 h-5" />
-                <span>Перейти в маркет на MAX</span>
-              </a>
+              <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2">
+                <a
+                  href={MAX_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050818] sm:w-[220px]"
+                  style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
+                >
+                  <Sparkles className="h-5 w-5 shrink-0" />
+                  <span>Перейти в MAX</span>
+                </a>
+                <a
+                  href={TELEGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050818] sm:w-[220px]"
+                  style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
+                >
+                  <Send className="h-5 w-5 shrink-0" />
+                  <span>Перейти в Telegram</span>
+                </a>
+              </div>
               <button
                 onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior:"smooth" })}
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300"
                 style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.75)", backdropFilter:"blur(12px)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background="rgba(255,255,255,0.10)"; e.currentTarget.style.borderColor="rgba(124,58,237,0.40)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background="rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.14)"; }}
