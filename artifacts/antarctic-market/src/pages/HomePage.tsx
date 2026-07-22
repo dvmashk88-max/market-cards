@@ -233,23 +233,6 @@ function OrderPanel({ prod, filtered, onSelect, email, onEmail }: {
           />
         </div>
 
-        {/* MAX block */}
-        <a
-          href={MAX_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
-          style={{
-            background: "linear-gradient(90deg,#7c3aed,#06b6d4)",
-            boxShadow: "0 0 28px rgba(124,58,237,0.45)",
-            textDecoration: "none",
-            display: "flex",
-          }}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>Перейти в MAX</span>
-        </a>
-
       </div>
     </div>
   );
