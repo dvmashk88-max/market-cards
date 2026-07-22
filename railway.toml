@@ -1,0 +1,13 @@
+# Keep Railway's Root Directory at the repository root. This storefront uses
+# pnpm workspace dependencies and catalog entries defined at the root.
+
+[build]
+builder = "RAILPACK"
+buildCommand = "pnpm --filter @workspace/antarctic-market run build"
+
+[deploy]
+startCommand = "pnpm --filter @workspace/antarctic-market run serve"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
