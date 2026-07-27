@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<digitalMarketFeed generatedAt="2026-07-27T23:50:00+04:00" version="1.0">
+  <seller>
+    <legalName>ООО «ЧИСТОДОМ-МСК»</legalName>
+    <storeName>Digital Market</storeName>
+    <website>https://market-cards-production.up.railway.app</website>
+    <businessModel>Продажа цифровых товаров с автоматической выдачей после оплаты</businessModel>
+    <payment>Официальная оплата через интернет-эквайринг Альфа-Банка</payment>
+    <delivery>Электронная доставка: код, ваучер или автоматическое пополнение аккаунта</delivery>
+  </seller>
+
+  <assortment>
+    <category id="steam">
+      <name>Steam</name>
+      <products>Пополнение баланса Steam, цифровые подарочные карты и игровые товары</products>
+    </category>
+    <category id="playstation">
+      <name>PlayStation</name>
+      <products>Подарочные карты PlayStation Store и цифровые коды для разных регионов</products>
+    </category>
+    <category id="xbox">
+      <name>Xbox</name>
+      <products>Подарочные карты Xbox, Game Pass и цифровые коды</products>
+    </category>
+    <category id="nintendo">
+      <name>Nintendo</name>
+      <products>Карты Nintendo eShop и цифровые продукты для разных регионов</products>
+    </category>
+    <category id="apple-google">
+      <name>Apple и Google Play</name>
+      <products>Подарочные карты App Store, iTunes и Google Play различных номиналов и регионов</products>
+    </category>
+    <category id="telegram">
+      <name>Telegram</name>
+      <products>Telegram Stars и Telegram Premium</products>
+    </category>
+    <category id="games">
+      <name>Игровые пополнения</name>
+      <products>Пополнение игровых аккаунтов, валюты, подписки и другие цифровые игровые товары</products>
+    </category>
+  </assortment>
+
+  <integration>
+    <skuCount>500+</skuCount>
+    <catalogSource>Каталог и наличие формируются через API поставщиков цифровых товаров</catalogSource>
+    <priceUpdate>Цены и доступность могут обновляться автоматически</priceUpdate>
+    <orderProcessing>Возможна интеграция по API, webhook или требованиям маркетплейса</orderProcessing>
+    <note>Это краткий ознакомительный фид для рассмотрения заявки. Полный товарный фид с SKU, ценами, остатками и изображениями будет подготовлен после получения технических требований ИгроРай.</note>
+  </integration>
+</digitalMarketFeed>
