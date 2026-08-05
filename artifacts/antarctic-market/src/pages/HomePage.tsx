@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Apple, Monitor, Gamepad2, Send, ShoppingCart,
-  CheckCircle2, Zap, Shield, Globe, ChevronDown, ArrowRight, Sparkles,
+  CheckCircle2, Zap, Shield, Globe, ChevronDown, ArrowRight, Sparkles, TriangleAlert,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import OrderSuccessDialog from "@/components/OrderSuccessDialog";
 import {
   fetchStorefrontCategories,
   fetchStorefrontProducts,
@@ -165,8 +166,14 @@ function ProductCard({ p, selected, onSelect }: { p: Product; selected: boolean;
 
 const MAX_URL = "https://max.ru/id6321431962_1_bot";
 const TELEGRAM_URL = "https://t.me/marketcards163bot";
+const CATEGORY_LABELS: Record<StorefrontCategory["id"], string> = {
+  apple: "Apple",
+  steam: "Steam",
+  games: "Игры",
+  telegram: "Telegram",
+};
 
-function SteamQuoteForm({ product }: { product: Product }) {
+function SteamQuoteForm({ product, onQuoteChange }: { product: Product; onQuoteChange: (quote: SteamQuote | null) => void }) {
   const currencies = product.steamForm?.currencies ?? [];
   const [steamLogin, setSteamLogin] = useState("");
   const [currency, setCurrency] = useState<SteamCurrency>(currencies[0] ?? "RUB");
@@ -181,10 +188,12 @@ function SteamQuoteForm({ product }: { product: Product }) {
   const calculate = async () => {
     setPending(true);
     setQuote(null);
+    onQuoteChange(null);
     setError("");
     try {
       const response = await fetchSteamQuote({ steamLogin, currency, amount });
       setQuote(response.quote);
+      onQuoteChange(response.quote);
     } catch {
       setError("Не удалось рассчитать цену. Проверьте логин Steam и сумму.");
     } finally {
@@ -199,7 +208,7 @@ function SteamQuoteForm({ product }: { product: Product }) {
         <input
           id="steam-login"
           value={steamLogin}
-          onChange={(event) => { setSteamLogin(event.target.value); setQuote(null); }}
+          onChange={(event) => { setSteamLogin(event.target.value); setQuote(null); onQuoteChange(null); }}
           placeholder="Имя аккаунта Steam"
           className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-400/60"
         />
@@ -211,7 +220,7 @@ function SteamQuoteForm({ product }: { product: Product }) {
           <select
             id="steam-currency"
             value={currency}
-            onChange={(event) => { setCurrency(event.target.value as SteamCurrency); setQuote(null); }}
+            onChange={(event) => { setCurrency(event.target.value as SteamCurrency); setQuote(null); onQuoteChange(null); }}
             className="w-full rounded-xl border border-white/10 bg-[#090d20] px-2 py-2.5 text-sm text-white outline-none"
           >
             {currencies.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -223,7 +232,7 @@ function SteamQuoteForm({ product }: { product: Product }) {
             id="steam-amount"
             inputMode="decimal"
             value={amount}
-            onChange={(event) => { setAmount(event.target.value.replace(",", ".")); setQuote(null); }}
+            onChange={(event) => { setAmount(event.target.value.replace(",", ".")); setQuote(null); onQuoteChange(null); }}
             placeholder={`Сумма в ${currency}`}
             aria-describedby="steam-amount-help"
             className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-400/60"
@@ -251,10 +260,8 @@ function SteamQuoteForm({ product }: { product: Product }) {
 }
 
 /* — Order Panel — */
-function OrderPanel({ prod, filtered, onSelect, selectedOfferId, onOffer, nominalsExpanded, onToggleNominals, email, onEmail }: {
+function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggleNominals, email, onEmail }: {
   prod: Product | null;
-  filtered: Product[];
-  onSelect: (slug: string) => void;
   selectedOfferId: string | null;
   onOffer: (id: string) => void;
   nominalsExpanded: boolean;
@@ -262,141 +269,127 @@ function OrderPanel({ prod, filtered, onSelect, selectedOfferId, onOffer, nomina
   email: string;
   onEmail: (s: string) => void;
 }) {
+  const [steamQuote, setSteamQuote] = useState<SteamQuote | null>(null);
   const selectedOffer = prod?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
   const availableOffers = sortedAvailableOffers(prod?.offers ?? []);
   const shownOffers = visibleOffers(prod?.offers ?? [], nominalsExpanded);
+  const totalPriceRub = prod?.slug === "steam-top-up" ? steamQuote?.priceRub : selectedOffer?.priceRub;
+  const ProductIcon = prod?.Icon;
+
+  useEffect(() => {
+    setSteamQuote(null);
+  }, [prod?.slug]);
+
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
-      {/* header */}
-      <div className="flex items-center gap-2.5 px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <ShoppingCart className="w-4 h-4" style={{ color: "#67e8f9" }} />
-        <span className="text-sm font-bold text-white">Панель заказа</span>
-      </div>
+    <div className="rounded-[26px] bg-gradient-to-r from-purple-500/70 via-indigo-400/45 to-cyan-400/70 p-px shadow-[0_0_45px_rgba(124,58,237,0.2)]">
+      <div className="overflow-hidden rounded-[25px] bg-[#090d20]/95 backdrop-blur-xl">
+        <div className="flex items-center gap-2.5 border-b border-white/8 px-5 py-4 sm:px-6">
+          <ShoppingCart className="h-4 w-4 text-cyan-300" />
+          <span className="text-sm font-bold text-white">Панель заказа</span>
+        </div>
 
-      <div className="px-5 py-5 space-y-5">
-
-        {/* mini product cards */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
-            {prod ? prod.cat : "Выберите товар"}
-          </p>
-          <div className="space-y-2">
-            {filtered.map((p) => {
-              const { Icon } = p;
-              const sel = prod?.slug === p.slug;
-              return (
-                <button
-                  key={p.slug}
-                  onClick={() => onSelect(p.slug)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left"
-                  style={sel ? {
-                    background: "rgba(124,58,237,0.14)",
-                    border: "1px solid rgba(124,58,237,0.50)",
-                    boxShadow: "0 0 16px rgba(124,58,237,0.15)",
-                  } : {
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
-                  {/* colorful icon */}
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md" style={{ background: p.iconBg }}>
-                    <Icon className="w-4 h-4 text-white" />
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+          <div className="min-w-0 space-y-5">
+            <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-white/[0.035] p-4">
+              {prod && ProductIcon ? (
+                <>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg" style={{ background: prod.iconBg }}>
+                    <ProductIcon className="h-5 w-5 text-white" />
                   </div>
-                  {/* text */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-white truncate">{p.flag} {p.title}</p>
-                    <p className="text-[10px] truncate mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-white/35">{CATEGORY_LABELS[prod.cat]} · {prod.region ?? "Цифровой товар"}</p>
+                    <p className="mt-1 font-bold text-white">{prod.flag} {prod.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-white/40">{prod.sub}</p>
                   </div>
-                  {/* selected dot */}
-                  {sel && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#c084fc,#67e8f9)" }} />}
-                  {/* tag badge */}
-                  {!sel && p.tag && (
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
-                      style={{ background: "rgba(124,58,237,0.20)", color: "#c4b5fd", border: "1px solid rgba(124,58,237,0.30)" }}>
-                      {p.tag}
-                    </span>
+                </>
+              ) : (
+                <p className="text-sm text-white/45">Выберите товар в каталоге</p>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-wider text-white/35">{prod?.slug === "steam-top-up" ? "Данные пополнения" : "Номинал или вариант"}</p>
+              {prod?.slug === "steam-top-up" ? (
+                <SteamQuoteForm key={prod.slug} product={prod} onQuoteChange={setSteamQuote} />
+              ) : shownOffers.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {shownOffers.map((offer) => (
+                      <button
+                        type="button"
+                        key={offer.id}
+                        disabled={!offer.available}
+                        onClick={() => onOffer(offer.id)}
+                        className="rounded-xl px-3 py-2.5 text-left text-xs transition-all disabled:opacity-40"
+                        style={selectedOfferId === offer.id ? {
+                          background: "rgba(124,58,237,0.16)",
+                          border: "1px solid rgba(124,58,237,0.55)",
+                        } : {
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <span className="block font-semibold text-white">{offer.label}</span>
+                        <span className="mt-0.5 block text-cyan-300">{formatPriceRub(offer.priceRub)}</span>
+                        {offer.stock !== null && <span className="mt-0.5 block text-[9px] text-white/35">В наличии: {offer.stock}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {availableOffers.length > 6 && (
+                    <button
+                      type="button"
+                      onClick={onToggleNominals}
+                      className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs font-semibold text-purple-200"
+                    >
+                      {nominalToggleLabel(nominalsExpanded)}
+                    </button>
                   )}
-                </button>
-              );
-            })}
+                </>
+              ) : (
+                <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/45">Сейчас недоступно</p>
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-4 rounded-2xl border border-white/8 bg-black/20 p-4 sm:p-5">
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-wider text-white/35">Email для доставки</p>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => onEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-purple-400/60"
+              />
+            </div>
+
+            <div className="flex gap-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-relaxed text-amber-50/80">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <div>
+                <p className="font-bold text-amber-100">После оплаты</p>
+                <p className="mt-2">Код будет отправлен на указанный e-mail. Обычно письмо приходит в течение 3–5 минут.</p>
+                <p className="mt-2">Если письма нет — проверьте папки: „Входящие“, „Спам“ и „Рассылки“.</p>
+                <p className="mt-2">После возвращения в магазин появится подтверждение выполнения заказа.</p>
+              </div>
+            </div>
+
+            <div className="flex items-end justify-between gap-4 border-t border-white/8 pt-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-white/35">Итого</p>
+                <p className="mt-1 text-2xl font-black text-white">{totalPriceRub === undefined ? "—" : formatPriceRub(totalPriceRub)}</p>
+              </div>
+              {selectedOffer && <p className="max-w-[150px] text-right text-[10px] text-white/35">{selectedOffer.label}</p>}
+            </div>
+
+            <button
+              type="button"
+              disabled
+              className="w-full rounded-xl border border-purple-400/25 bg-purple-500/15 px-4 py-3 text-sm font-bold text-white/55"
+            >
+              Оплата подключается
+            </button>
           </div>
         </div>
-
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-        <div>
-          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>{prod?.slug === "steam-top-up" ? "Данные пополнения" : "Номинал или вариант"}</p>
-          {prod?.slug === "steam-top-up" ? (
-            <SteamQuoteForm key={prod.slug} product={prod} />
-          ) : shownOffers.length > 0 ? (
-            <>
-            <div className="grid grid-cols-2 gap-2 pr-1">
-              {shownOffers.map((offer) => (
-                <button
-                  type="button"
-                  key={offer.id}
-                  disabled={!offer.available}
-                  onClick={() => onOffer(offer.id)}
-                  className="rounded-xl px-2 py-2 text-left text-xs transition-all disabled:opacity-40"
-                  style={selectedOfferId === offer.id ? {
-                    background: "rgba(124,58,237,0.16)",
-                    border: "1px solid rgba(124,58,237,0.55)",
-                  } : {
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <span className="block font-semibold text-white">{offer.label}</span>
-                  <span className="mt-0.5 block text-cyan-300">{formatPriceRub(offer.priceRub)}</span>
-                  {offer.stock !== null && <span className="mt-0.5 block text-[9px] text-white/35">В наличии: {offer.stock}</span>}
-                </button>
-              ))}
-            </div>
-            {availableOffers.length > 6 && (
-              <button
-                type="button"
-                onClick={onToggleNominals}
-                className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs font-semibold text-purple-200"
-              >
-                {nominalToggleLabel(nominalsExpanded)}
-              </button>
-            )}
-            </>
-          ) : (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/45">Сейчас недоступно</p>
-          )}
-        </div>
-
-        {/* divider */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-        {/* email */}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Email для доставки</p>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => onEmail(e.target.value)}
-            placeholder="your@email.com"
-            className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder:text-white/20 outline-none transition-all"
-            style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.09)" }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(124,58,237,0.55)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)")}
-          />
-        </div>
-
-        <button
-          type="button"
-          disabled
-          className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white/55"
-          style={{ background: "rgba(124,58,237,0.18)", border: "1px solid rgba(124,58,237,0.25)" }}
-        >
-          Оплата подключается
-        </button>
-        {selectedOffer && (
-          <p className="text-center text-[10px] text-white/35">Выбран вариант: {selectedOffer.label} · {formatPriceRub(selectedOffer.priceRub)}</p>
-        )}
-
       </div>
     </div>
   );
@@ -414,6 +407,11 @@ export default function HomePage() {
     expanded: false,
   });
   const [email, setEmail]       = useState("");
+  const [successPreviewOpen, setSuccessPreviewOpen] = useState(() =>
+    import.meta.env.DEV
+      && typeof window !== "undefined"
+      && new URLSearchParams(window.location.search).get("preview") === "order-success",
+  );
 
   const categoriesQuery = useQuery({
     queryKey: ["storefront", "categories"],
@@ -601,10 +599,7 @@ export default function HomePage() {
               <p className="text-base" style={{ color:"rgba(255,255,255,0.45)" }}>Выберите товар — панель заказа обновится автоматически</p>
             </motion.div>
 
-            {/* two-column */}
-            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_308px]">
-
-              {/* left: category tabs + grid */}
+            <div className="space-y-6">
               <div>
                 {/* tabs */}
                 <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
@@ -662,18 +657,15 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* right: sticky sidebar */}
-              <div className="flex flex-col gap-4" style={{ position:"sticky", top:"88px" }}>
-                <OrderPanel prod={selected} filtered={filtered} onSelect={pickProd} selectedOfferId={selectedOfferId} onOffer={setSelectedOfferId} nominalsExpanded={nominalView.expanded} onToggleNominals={() => dispatchNominalView({ type: "toggle" })} email={email} onEmail={setEmail} />
-              </div>
+              <OrderPanel prod={selected} selectedOfferId={selectedOfferId} onOffer={setSelectedOfferId} nominalsExpanded={nominalView.expanded} onToggleNominals={() => dispatchNominalView({ type: "toggle" })} email={email} onEmail={setEmail} />
             </div>
           </div>
         </section>
 
         {/* ══ HOW IT WORKS ════════════════════════════════════════════ */}
-        <section id="how" className="py-20 px-4">
+        <section id="how" className="py-14 px-4">
           <div className="max-w-5xl mx-auto">
-            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-12">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-9">
               <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Как это работает</h2>
               <p style={{ color:"rgba(255,255,255,0.45)" }}>Четыре шага до получения товара</p>
             </motion.div>
@@ -703,9 +695,9 @@ export default function HomePage() {
         </section>
 
         {/* ══ FAQ ═════════════════════════════════════════════════════ */}
-        <section id="faq" className="py-20 px-4">
+        <section id="faq" className="py-14 px-4">
           <div className="max-w-2xl mx-auto">
-            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-10">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-8">
               <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Частые вопросы</h2>
               <p style={{ color:"rgba(255,255,255,0.45)" }}>Нашли вопрос — нашли ответ</p>
             </motion.div>
@@ -720,9 +712,9 @@ export default function HomePage() {
         </section>
 
         {/* ══ CONTACTS ════════════════════════════════════════════════ */}
-        <section id="contacts" className="py-20 px-4">
+        <section id="contacts" className="py-14 px-4">
           <div className="max-w-xl mx-auto">
-            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-10">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-8">
               <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Контакты</h2>
               <p style={{ color:"rgba(255,255,255,0.45)" }}>Поддержка 24/7 — ответим на любой вопрос</p>
             </motion.div>
@@ -755,6 +747,14 @@ export default function HomePage() {
         </section>
 
       </main>
+
+      <OrderSuccessDialog
+        open={successPreviewOpen}
+        product={selected?.title ?? "Цифровой товар"}
+        nominal={selected?.offers.find((offer) => offer.id === selectedOfferId)?.label ?? "Выбранный номинал"}
+        email={email || "buyer@example.com"}
+        onClose={() => setSuccessPreviewOpen(false)}
+      />
 
       <Footer />
     </div>
