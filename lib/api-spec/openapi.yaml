@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
@@ -10,15 +9,14 @@ servers:
 tags:
   - name: health
     description: Health operations
-  - name: catalog
-    description: Read-only normalized storefront catalog
+  - name: storefront
+    description: Curated public storefront
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -26,14 +24,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /catalog/categories:
+  /storefront/categories:
     get:
-      operationId: catalogCategories
-      tags: [catalog]
-      summary: List live FazerCards catalog groups
+      operationId: storefrontCategories
+      tags: [storefront]
+      summary: List the four public storefront categories
       responses:
         "200":
-          description: Catalog groups
+          description: Storefront categories
           content:
             application/json:
               schema:
@@ -43,21 +41,15 @@ paths:
                   categories:
                     type: array
                     items:
-                      $ref: "#/components/schemas/CatalogCategory"
-  /catalog/products:
+                      $ref: "#/components/schemas/StorefrontCategory"
+  /storefront/products:
     get:
-      operationId: catalogProducts
-      tags: [catalog]
-      summary: List live products in a catalog group
-      parameters:
-        - in: query
-          name: category
-          required: true
-          schema:
-            $ref: "#/components/schemas/CatalogCategoryId"
+      operationId: storefrontProducts
+      tags: [storefront]
+      summary: List the nine curated storefront products with live offers
       responses:
         "200":
-          description: Products
+          description: Curated products
           content:
             application/json:
               schema:
@@ -67,26 +59,43 @@ paths:
                   products:
                     type: array
                     items:
-                      $ref: "#/components/schemas/CatalogProduct"
-  /catalog/products/{categoryId}/{productId}:
+                      $ref: "#/components/schemas/StorefrontProduct"
+  /storefront/steam/quote:
+    post:
+      operationId: storefrontSteamQuote
+      tags: [storefront]
+      summary: Validate a Steam login and calculate a read-only top-up quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SteamQuoteInput"
+      responses:
+        "200":
+          description: Final customer quote in RUB; no order is created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quote]
+                properties:
+                  quote:
+                    $ref: "#/components/schemas/SteamQuote"
+  /storefront/products/{slug}:
     get:
-      operationId: catalogProduct
-      tags: [catalog]
-      summary: Get one product and its live offers
+      operationId: storefrontProduct
+      tags: [storefront]
+      summary: Get one curated storefront product
       parameters:
         - in: path
-          name: categoryId
-          required: true
-          schema:
-            $ref: "#/components/schemas/CatalogCategoryId"
-        - in: path
-          name: productId
+          name: slug
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Product and offers with final server-calculated prices
+          description: Curated product
           content:
             application/json:
               schema:
@@ -94,81 +103,41 @@ paths:
                 required: [product]
                 properties:
                   product:
-                    $ref: "#/components/schemas/CatalogProductDetail"
+                    $ref: "#/components/schemas/StorefrontProduct"
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
-    CatalogCategoryId:
+    StorefrontCategoryId:
       type: string
-      enum: [gift-cards, game-keys, top-ups, manual-services]
-    CatalogCategory:
+      enum: [apple, steam, games, telegram]
+    StorefrontCategory:
       type: object
-      required: [id, name, description, productCount]
+      required: [id, name, emoji, order, productCount]
       properties:
         id:
-          $ref: "#/components/schemas/CatalogCategoryId"
+          $ref: "#/components/schemas/StorefrontCategoryId"
         name:
           type: string
-        description:
+        emoji:
           type: string
+        order:
+          type: integer
         productCount:
           type: integer
-    CatalogProduct:
+    StorefrontOffer:
       type: object
-      required:
-        [
-          id,
-          categoryId,
-          name,
-          description,
-          imageUrl,
-          region,
-          platform,
-          available,
-        ]
+      required: [id, label, nominal, priceRub, available, stock]
       properties:
         id:
           type: string
-        categoryId:
-          $ref: "#/components/schemas/CatalogCategoryId"
-        name:
+        label:
           type: string
-        description:
-          type: string
-        imageUrl:
-          type: [string, "null"]
-        region:
-          type: [string, "null"]
-        platform:
-          type: [string, "null"]
-        available:
-          type: boolean
-    CatalogOffer:
-      type: object
-      required:
-        [
-          id,
-          name,
-          price,
-          nominal,
-          stock,
-          available,
-          minQuantity,
-          maxQuantity,
-          deliveryMinutes,
-        ]
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        price:
+        nominal:
           type: object
           required: [amount, currency]
           properties:
@@ -176,52 +145,102 @@ components:
               type: string
             currency:
               type: string
-              enum: [USD]
-        nominal:
-          type: object
-          required: [label, amount, currency]
-          properties:
-            label:
-              type: string
-            amount:
-              type: [string, "null"]
-            currency:
-              type: [string, "null"]
-        stock:
-          type: [integer, "null"]
+        priceRub:
+          type: integer
+          minimum: 1
         available:
           type: boolean
-        minQuantity:
-          type: integer
-        maxQuantity:
+        stock:
           type: [integer, "null"]
-        deliveryMinutes:
-          type: [integer, "null"]
-    CatalogField:
+    StorefrontProduct:
       type: object
-      required: [key, label, type]
+      required:
+        [
+          slug,
+          categoryId,
+          title,
+          description,
+          flag,
+          region,
+          available,
+          offers,
+          steamForm,
+        ]
       properties:
-        key:
+        slug:
           type: string
-        label:
+        categoryId:
+          $ref: "#/components/schemas/StorefrontCategoryId"
+        title:
           type: string
-        type:
+        description:
           type: string
-        options:
+        flag:
+          type: string
+        region:
+          type: [string, "null"]
+        available:
+          type: boolean
+        offers:
           type: array
           items:
-            type: string
-    CatalogProductDetail:
-      allOf:
-        - $ref: "#/components/schemas/CatalogProduct"
-        - type: object
-          required: [offers, requiredFields]
-          properties:
-            offers:
-              type: array
-              items:
-                $ref: "#/components/schemas/CatalogOffer"
-            requiredFields:
-              type: array
-              items:
-                $ref: "#/components/schemas/CatalogField"
+            $ref: "#/components/schemas/StorefrontOffer"
+        steamForm:
+          oneOf:
+            - $ref: "#/components/schemas/SteamFormConfig"
+            - type: "null"
+    SteamCurrency:
+      type: string
+      enum: [USD, RUB, UAH, KZT]
+    SteamAmountRule:
+      type: object
+      required: [currency, maxFractionDigits]
+      properties:
+        currency:
+          $ref: "#/components/schemas/SteamCurrency"
+        maxFractionDigits:
+          type: integer
+    SteamFormConfig:
+      type: object
+      required: [currencies, amountRules, minimumAmount, maximumAmount]
+      properties:
+        currencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/SteamCurrency"
+        amountRules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SteamAmountRule"
+        minimumAmount:
+          type: "null"
+        maximumAmount:
+          type: "null"
+    SteamQuoteInput:
+      type: object
+      required: [steamLogin, currency, amount]
+      properties:
+        steamLogin:
+          type: string
+          minLength: 1
+          maxLength: 100
+        currency:
+          $ref: "#/components/schemas/SteamCurrency"
+        amount:
+          type: string
+          minLength: 1
+          maxLength: 32
+    SteamQuote:
+      type: object
+      required: [canRefill, currency, amount, priceRub]
+      properties:
+        canRefill:
+          type: boolean
+          enum: [true]
+        currency:
+          $ref: "#/components/schemas/SteamCurrency"
+        amount:
+          type: string
+        priceRub:
+          type: integer
+          minimum: 1

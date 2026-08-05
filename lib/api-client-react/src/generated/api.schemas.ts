@@ -9,96 +9,110 @@ export interface HealthStatus {
   status: string;
 }
 
-export type CatalogCategoryId =
-  (typeof CatalogCategoryId)[keyof typeof CatalogCategoryId];
+export type StorefrontCategoryId =
+  (typeof StorefrontCategoryId)[keyof typeof StorefrontCategoryId];
 
-export const CatalogCategoryId = {
-  "gift-cards": "gift-cards",
-  "game-keys": "game-keys",
-  "top-ups": "top-ups",
-  "manual-services": "manual-services",
+export const StorefrontCategoryId = {
+  apple: "apple",
+  steam: "steam",
+  games: "games",
+  telegram: "telegram",
 } as const;
 
-export interface CatalogCategory {
-  id: CatalogCategoryId;
+export interface StorefrontCategory {
+  id: StorefrontCategoryId;
   name: string;
-  description: string;
+  emoji: string;
+  order: number;
   productCount: number;
 }
 
-export interface CatalogProduct {
-  id: string;
-  categoryId: CatalogCategoryId;
-  name: string;
-  description: string;
-  /** @nullable */
-  imageUrl: string | null;
-  /** @nullable */
-  region: string | null;
-  /** @nullable */
-  platform: string | null;
-  available: boolean;
-}
-
-export type CatalogOfferPriceCurrency =
-  (typeof CatalogOfferPriceCurrency)[keyof typeof CatalogOfferPriceCurrency];
-
-export const CatalogOfferPriceCurrency = {
-  USD: "USD",
-} as const;
-
-export type CatalogOfferPrice = {
+export type StorefrontOfferNominal = {
   amount: string;
-  currency: CatalogOfferPriceCurrency;
+  currency: string;
 };
 
-export type CatalogOfferNominal = {
-  label: string;
-  /** @nullable */
-  amount: string | null;
-  /** @nullable */
-  currency: string | null;
-};
-
-export interface CatalogOffer {
+export interface StorefrontOffer {
   id: string;
-  name: string;
-  price: CatalogOfferPrice;
-  nominal: CatalogOfferNominal;
+  label: string;
+  nominal: StorefrontOfferNominal;
+  /** @minimum 1 */
+  priceRub: number;
+  available: boolean;
   /** @nullable */
   stock: number | null;
+}
+
+export type SteamCurrency = (typeof SteamCurrency)[keyof typeof SteamCurrency];
+
+export const SteamCurrency = {
+  USD: "USD",
+  RUB: "RUB",
+  UAH: "UAH",
+  KZT: "KZT",
+} as const;
+
+export interface SteamAmountRule {
+  currency: SteamCurrency;
+  maxFractionDigits: number;
+}
+
+export interface SteamFormConfig {
+  currencies: SteamCurrency[];
+  amountRules: SteamAmountRule[];
+  /** @nullable */
+  minimumAmount: null;
+  /** @nullable */
+  maximumAmount: null;
+}
+
+export interface StorefrontProduct {
+  slug: string;
+  categoryId: StorefrontCategoryId;
+  title: string;
+  description: string;
+  flag: string;
+  /** @nullable */
+  region: string | null;
   available: boolean;
-  minQuantity: number;
-  /** @nullable */
-  maxQuantity: number | null;
-  /** @nullable */
-  deliveryMinutes: number | null;
+  offers: StorefrontOffer[];
+  steamForm: SteamFormConfig | null;
 }
 
-export interface CatalogField {
-  key: string;
-  label: string;
-  type: string;
-  options?: string[];
+export interface SteamQuoteInput {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  steamLogin: string;
+  currency: SteamCurrency;
+  /**
+   * @minLength 1
+   * @maxLength 32
+   */
+  amount: string;
 }
 
-export type CatalogProductDetail = CatalogProduct & {
-  offers: CatalogOffer[];
-  requiredFields: CatalogField[];
+export interface SteamQuote {
+  canRefill: true;
+  currency: SteamCurrency;
+  amount: string;
+  /** @minimum 1 */
+  priceRub: number;
+}
+
+export type StorefrontCategories200 = {
+  categories: StorefrontCategory[];
 };
 
-export type CatalogCategories200 = {
-  categories: CatalogCategory[];
+export type StorefrontProducts200 = {
+  products: StorefrontProduct[];
 };
 
-export type CatalogProductsParams = {
-  category: CatalogCategoryId;
+export type StorefrontSteamQuote200 = {
+  quote: SteamQuote;
 };
 
-export type CatalogProducts200 = {
-  products: CatalogProduct[];
-};
-
-export type CatalogProduct200 = {
-  product: CatalogProductDetail;
+export type StorefrontProduct200 = {
+  product: StorefrontProduct;
 };

@@ -83,9 +83,10 @@ function safeProviderError(body: unknown): { message: string; code: string } {
   };
 }
 
-export async function fetchFazerCards<T>(
+async function requestFazerCards<T>(
   path: string,
   schema: z.ZodType<T>,
+  init: Pick<RequestInit, "method" | "body"> = {},
 ): Promise<T> {
   const config = getFazerCardsConfig();
   const url = new URL(path, config.baseUrl.origin);
@@ -93,10 +94,12 @@ export async function fetchFazerCards<T>(
   let response: Response;
   try {
     response = await fetch(url, {
-      method: "GET",
+      method: init.method ?? "GET",
+      body: init.body,
       headers: {
         Accept: "application/json",
         "X-API-Key": config.apiKey,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
       },
       signal: AbortSignal.timeout(config.timeoutMs),
     });
@@ -142,4 +145,22 @@ export async function fetchFazerCards<T>(
   }
 
   return parsed.data;
+}
+
+export function fetchFazerCards<T>(
+  path: string,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  return requestFazerCards(path, schema);
+}
+
+export function postFazerCards<T>(
+  path: string,
+  body: unknown,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  return requestFazerCards(path, schema, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

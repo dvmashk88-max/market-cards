@@ -5,10 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SteamQuote } from "./steamQuote";
 
-export interface CatalogField {
-  key: string;
-  label: string;
-  type: string;
-  options?: string[];
-}
+export type StorefrontSteamQuote200 = {
+  quote: SteamQuote;
+};

@@ -2,19 +2,17 @@
 
 Дата обновления: 5 августа 2026 года.
 
-## Реальный каталог FazerCards — 5 августа 2026 года
+## Curated-витрина FazerCards — 5 августа 2026 года
 
-- Через опубликованный FazerCards OpenAPI и безопасные read-only запросы установлен фактический контракт Public API v2. Авторизация выполняется сервером через `X-API-Key`; ключ не передаётся frontend и не включается в bundle.
-- Подтверждены живыми ответами `200` каталоги gift cards, game keys, top-ups и manual services, а также связанные offers. На момент интеграционной проверки backend получил 578 категорий подарочных карт, 386 игровых ключей, 317 пополнений и 7 ручных сервисов.
-- FazerCards возвращает partner price в поле `price_usd`. Для gift cards и game keys также возвращаются `stock`, минимальное и максимальное количество; top-ups и manual services публикуют только доступные offers. Game keys отдельно отдают регион и списки доступных/недоступных стран.
-- Добавлены read-only endpoint-ы магазина: `GET /api/catalog/categories`, `GET /api/catalog/products?category=…` и `GET /api/catalog/products/:categoryId/:productId`. Ответы поставщика валидируются Zod и нормализуются до публичного storefront-контракта.
-- Серверный кэш каталога настроен на 300000 ms, таймаут FazerCards — 10000 ms. Ошибки поставщика преобразуются в безопасные ответы без секретов и приватных подробностей.
-- В Railway добавлены `CATALOG_MARKUP_PERCENT=50`, `FAZERCARDS_REQUEST_TIMEOUT_MS=10000` и `FAZERCARDS_CATALOG_CACHE_TTL_MS=300000`. Итоговая USD-цена вычисляется только backend как закупочная цена + 50% с округлением до цента; закупочная цена не возвращается frontend.
-- Моковые товары, категории и номиналы удалены из основной витрины; неиспользуемая страница со старым моковым каталогом удалена полностью. Frontend использует обновлённый сгенерированный API-клиент.
-- Существующий визуальный стиль, адаптивная сетка, hero, MAX/Telegram CTA, email и юридические страницы сохранены. Добавлены loading/error/empty/retry/no-offers состояния, поиск по живой категории и рабочая правая панель реальных offers.
-- Кнопка checkout отключена и явно сообщает «Оплата подключается». Email остаётся только в локальном состоянии формы; заказы, платежи, покупки FazerCards, Альфа-Банк и SMTP не вызываются.
-- Railway переведён на один production-процесс: сначала собираются frontend и backend, затем Express обслуживает `/api`, статические файлы и SPA fallback. Healthcheck выполняется по `/api/healthz`; сервер слушает `0.0.0.0` и `process.env.PORT`.
-- Дополнительно исследованы read-only котировки Telegram Stars/Premium, Steam top-up rates и Steam Gifts. Steam Gifts содержит более 174 тысяч игр и ограничен одним запросом списка на 3 минуты; эти quote/large-catalog API не включены в основную сетку текущего этапа.
+- Восстановлены русская структура, тексты и визуальное оформление витрины из состояния `4e13f35`: hero, адаптивный каталог, правая панель, FAQ, контакты, юридические страницы и CTA MAX/Telegram сохранены.
+- Публичный ассортимент ограничен серверным белым списком: ровно 4 категории (`Apple`, `Steam`, `Игры`, `Telegram`) и 9 товаров. Общие группы FazerCards Gift Cards, Game Keys, Top-ups и Manual Services не возвращаются frontend; старые `/api/catalog/*` отключены.
+- Frontend использует только `GET /api/storefront/categories`, `GET /api/storefront/products` и безопасный `POST /api/storefront/steam/quote`. Полный каталог FazerCards не загружается в браузер и не встраивается в bundle.
+- В Railway установлены `CATALOG_MARKUP_PERCENT=50` и `USD_TO_RUB_RATE=90`. Итоговая цена рассчитывается только backend по формуле `ceil(purchasePriceUsd × 1.50 × 90)` и возвращается целым числом в `priceRub`; закупочная цена не публикуется.
+- Номинал товара сохраняет исходную валюту или единицу: TRY, USD, RUB, INR, UC, алмазы, Stars и месяцы. Недоступные offers скрываются, варианты сортируются по возрастанию и по умолчанию показываются максимум по 6 с возможностью раскрыть и свернуть полный список.
+- Steam Top-up подготовлен для прямого пополнения по `steamLogin`, а не через gift card или Steam Gifts. Форма принимает логин, произвольную сумму и валюту USD/RUB/UAH/KZT; quote использует только безопасные FazerCards `check-login` и `rates`, не вызывает `/order` и не списывает баланс.
+- `FAZERCARDS_API_KEY`, закупочные цены, внутренние ID белого списка и серверные настройки не включаются во frontend bundle. Таймаут и TTL-кэш FazerCards остаются серверными настройками.
+- Кнопка покупки остаётся отключённой и сообщает «Оплата подключается». Альфа-Банк, реальные заказы FazerCards/Steam, покупка карт, SMTP и email-доставка пока не подключены.
+- Railway использует один production-процесс: собираются frontend и backend, после чего Express обслуживает API, статические файлы и SPA fallback. Healthcheck остаётся `/api/healthz`.
 
 ## Инфраструктура backend — 5 августа 2026 года
 
@@ -96,8 +94,8 @@
 - Основной frontend: `artifacts/antarctic-market` (`@workspace/antarctic-market`). Технологии: React 19, TypeScript 5.9, Vite 7, Tailwind CSS 4, Wouter, Framer Motion и существующий набор UI-компонентов.
 - Отдельный `artifacts/mockup-sandbox` используется как вспомогательный workspace и не является публикуемой витриной.
 - Backend `artifacts/api-server` участвует в Railway deployment, хранит интеграцию FazerCards и обслуживает production frontend из того же процесса.
-- Frontend вызывает только same-origin endpoint-ы `/api/catalog/*`; FazerCards API и его ключ доступны исключительно backend.
-- Товары, offers, регионы, доступность и цены витрины формируются из FazerCards. Панель заказа пока остаётся безопасным интерфейсным прототипом: полноценный серверный заказ, оплата и доставка ещё не реализованы.
+- Frontend вызывает только same-origin endpoint-ы `/api/storefront/*`; FazerCards API и его ключ доступны исключительно backend.
+- Девять разрешённых товаров, их offers, доступность и рублёвые цены формируются backend из curated-конфигурации и read-only FazerCards API. Панель заказа пока остаётся безопасным интерфейсным прототипом: полноценный серверный заказ, оплата и доставка ещё не реализованы.
 - Секреты не встраиваются в frontend. Будущие ключи FazerCards, платёжного провайдера, базы данных и почтового сервиса должны храниться только в переменных окружения backend/Railway и никогда не попадать в Git или клиентский bundle.
 
 ## Что НЕ реализовано

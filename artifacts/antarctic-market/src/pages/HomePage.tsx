@@ -1,115 +1,94 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronDown,
-  Gamepad2,
-  Gift,
-  Globe,
-  LoaderCircle,
-  RefreshCw,
-  Search,
-  Send,
-  Shield,
-  ShoppingCart,
-  Sparkles,
-  WalletCards,
-  Zap,
+  Apple, Monitor, Gamepad2, Send, ShoppingCart,
+  CheckCircle2, Zap, Shield, Globe, ChevronDown, ArrowRight, Sparkles,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
-  fetchCatalogCategories,
-  fetchCatalogProduct,
-  fetchCatalogProducts,
-  type CatalogCategory,
-  type CatalogOffer,
-  type CatalogProduct,
-  type CatalogProductDetail,
+  fetchStorefrontCategories,
+  fetchStorefrontProducts,
+  fetchSteamQuote,
+  type SteamCurrency,
+  type SteamQuote,
+  type StorefrontCategory,
+  type StorefrontProduct,
 } from "@/lib/catalog";
+import {
+  nominalToggleLabel,
+  nominalViewReducer,
+  sortedAvailableOffers,
+  visibleOffers,
+} from "@/lib/nominals";
 
-const MAX_URL = "https://max.ru/id6321431962_1_bot";
-const TELEGRAM_URL = "https://t.me/marketcards163bot";
+/* ═══════════════════════════════════════════════════════════════════ Data */
 
-const categoryVisuals: Record<
-  CatalogCategory["id"],
-  { icon: React.ElementType; emoji: string; gradient: string }
-> = {
-  "gift-cards": {
-    icon: Gift,
-    emoji: "🎁",
-    gradient: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-  },
-  "game-keys": {
-    icon: Gamepad2,
-    emoji: "🎮",
-    gradient: "linear-gradient(135deg,#06b6d4,#2563eb)",
-  },
-  "top-ups": {
-    icon: Zap,
-    emoji: "⚡",
-    gradient: "linear-gradient(135deg,#0d9488,#06b6d4)",
-  },
-  "manual-services": {
-    icon: WalletCards,
-    emoji: "💳",
-    gradient: "linear-gradient(135deg,#c026d3,#7c3aed)",
-  },
+type Product = StorefrontProduct & {
+  cat: StorefrontCategory["id"];
+  sub: string;
+  iconBg: string;
+  Icon: React.ElementType;
+  tag?: string;
 };
+
+const PRESENTATION: Record<StorefrontCategory["id"], { iconBg: string; Icon: React.ElementType }> = {
+  apple: { iconBg: "linear-gradient(135deg,#6b7280,#374151)", Icon: Apple },
+  steam: { iconBg: "linear-gradient(135deg,#22d3ee,#0891b2)", Icon: Monitor },
+  games: { iconBg: "linear-gradient(135deg,#4ade80,#15803d)", Icon: Gamepad2 },
+  telegram: { iconBg: "linear-gradient(135deg,#38bdf8,#2563eb)", Icon: Send },
+};
+
+function toProduct(product: StorefrontProduct): Product {
+  return {
+    ...product,
+    cat: product.categoryId,
+    sub: product.description,
+    ...PRESENTATION[product.categoryId],
+    ...(product.slug === "app-store-turkey" || product.slug === "telegram-stars"
+      ? { tag: "Популярно" }
+      : {}),
+  };
+}
+
+function formatPriceRub(priceRub: number): string {
+  return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(priceRub)} ₽`;
+}
 
 const FAQ_ITEMS = [
   {
-    q: "Откуда берутся товары и цены?",
-    a: "Каталог, доступность и закупочные цены загружаются с FazerCards. Итоговая цена рассчитывается на сервере магазина.",
+    q: "Как быстро я получу товар?",
+    a: "Цифровой код отправляется на указанный email автоматически сразу после подтверждения оплаты. Обычно это занимает 1–5 минут.",
   },
   {
-    q: "Можно ли уже оплатить товар?",
-    a: "Пока нет. На этом этапе работает реальный каталог, а безопасная оплата будет подключена отдельно.",
+    q: "Какие способы оплаты доступны?",
+    a: "Мы принимаем оплату банковскими картами Visa, Mastercard и МИР через сертифицированные платёжные системы.",
   },
   {
-    q: "Что делать, если нужного товара нет?",
-    a: "Обновите каталог позже или напишите в поддержку: недоступные у поставщика товары и предложения не показываются как доступные.",
+    q: "Что делать, если код не работает?",
+    a: "Обратитесь в службу поддержки 24/7 по email d.v.mash@mail.ru с номером заказа — разберёмся и поможем.",
   },
 ];
 
-function formatPrice(offer: CatalogOffer): string {
-  return new Intl.NumberFormat("ru-RU", {
-    style: "currency",
-    currency: offer.price.currency,
-    minimumFractionDigits: 2,
-  }).format(Number(offer.price.amount));
-}
+/* ══════════════════════════════════════════════════════════════ Sub-components */
 
+/* — Accordion — */
 function Accordion({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div
-      className="cursor-pointer overflow-hidden rounded-2xl transition-all duration-300"
-      style={
-        open
-          ? {
-              background: "rgba(124,58,237,0.08)",
-              border: "1px solid rgba(124,58,237,0.28)",
-            }
-          : {
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }
-      }
+      className="rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer"
+      style={open
+        ? { background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.28)" }
+        : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
       onClick={() => setOpen(!open)}
     >
-      <div className="flex items-center justify-between gap-4 px-6 py-5">
-        <span className="text-sm font-semibold leading-snug text-white">
-          {q}
-        </span>
+      <div className="flex items-center justify-between px-6 py-5 gap-4">
+        <span className="font-semibold text-white text-sm leading-snug">{q}</span>
         <ChevronDown
-          className="h-5 w-5 shrink-0 transition-transform duration-300"
-          style={{
-            color: open ? "#a78bfa" : "rgba(255,255,255,0.35)",
-            transform: open ? "rotate(180deg)" : "none",
-          }}
+          className="w-5 h-5 shrink-0 transition-transform duration-300"
+          style={{ color: open ? "#a78bfa" : "rgba(255,255,255,0.35)", transform: open ? "rotate(180deg)" : "none" }}
         />
       </div>
       <AnimatePresence initial={false}>
@@ -118,11 +97,10 @@ function Accordion({ q, a }: { q: string; a: string }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
             className="overflow-hidden"
           >
-            <p className="px-6 pb-5 text-sm leading-relaxed text-white/55">
-              {a}
-            </p>
+            <p className="px-6 pb-5 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{a}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -130,639 +108,654 @@ function Accordion({ q, a }: { q: string; a: string }) {
   );
 }
 
-function ProductCard({
-  product,
-  selected,
-  onSelect,
-}: {
-  product: CatalogProduct;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const visual = categoryVisuals[product.categoryId];
-  const Icon = visual.icon;
+/* — Product Card — */
+function ProductCard({ p, selected, onSelect }: { p: Product; selected: boolean; onSelect: () => void }) {
+  const { Icon } = p;
   return (
-    <motion.button
-      type="button"
+    <motion.div
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96 }}
+      exit={{ opacity: 0, scale: 0.94 }}
       whileHover={{ y: -3 }}
       onClick={onSelect}
-      className="relative overflow-hidden rounded-2xl text-left transition-shadow duration-300"
-      style={
-        selected
-          ? {
-              background: "rgba(124,58,237,0.09)",
-              border: "1px solid rgba(124,58,237,0.50)",
-              boxShadow: "0 0 28px rgba(124,58,237,0.18)",
-            }
-          : {
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
-            }
-      }
+      className="cursor-pointer relative rounded-2xl overflow-hidden transition-shadow duration-300"
+      style={selected
+        ? { background: "rgba(124,58,237,0.09)", border: "1px solid rgba(124,58,237,0.50)", boxShadow: "0 0 28px rgba(124,58,237,0.18)" }
+        : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
+      {/* top glow line when selected */}
       {selected && (
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg,transparent,#a78bfa 40%,#67e8f9 60%,transparent)" }} />
       )}
+      {/* tag */}
+      {p.tag && (
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
+          style={{ background: "rgba(124,58,237,0.20)", border: "1px solid rgba(124,58,237,0.35)", color: "#c4b5fd" }}>
+          {p.tag}
+        </div>
+      )}
+
       <div className="p-4">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-lg"
-            style={{ background: visual.gradient }}
-          >
-            {product.imageUrl ? (
-              <img
-                src={product.imageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <Icon className="h-5 w-5 text-white" />
-            )}
+        {/* icon row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg" style={{ background: p.iconBg }}>
+            <Icon className="w-5 h-5 text-white" />
           </div>
-          <span
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${product.available ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}
-          >
-            {product.available ? "Доступен" : "Недоступен"}
-          </span>
+          {!p.tag && <span className="text-xl leading-none">{p.flag}</span>}
         </div>
-        <h3 className="mb-1 text-sm font-bold leading-snug text-white">
-          {product.name}
+        {/* title */}
+        <h3 className="text-sm font-bold text-white mb-1 leading-snug">
+          {p.title}
         </h3>
-        <p className="line-clamp-2 min-h-8 text-xs leading-relaxed text-white/40">
-          {product.description || "Цифровой товар FazerCards"}
-        </p>
-        {(product.region || product.platform) && (
-          <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-cyan-200/70">
-            {product.region && (
-              <span className="rounded-md bg-cyan-500/10 px-2 py-1">
-                Регион: {product.region}
-              </span>
-            )}
-            {product.platform && (
-              <span className="rounded-md bg-purple-500/10 px-2 py-1">
-                {product.platform}
-              </span>
-            )}
-          </div>
-        )}
+        <p className="text-xs leading-snug" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
       </div>
+
+      {/* selected footer bar */}
       {selected && (
-        <div className="flex items-center justify-between border-t border-purple-500/20 bg-purple-500/10 px-4 py-2">
-          <span className="text-xs font-semibold text-purple-200">Выбран</span>
-          <CheckCircle2 className="h-3.5 w-3.5 text-purple-300" />
+        <div className="px-4 py-2 flex items-center justify-between"
+          style={{ background: "rgba(124,58,237,0.12)", borderTop: "1px solid rgba(124,58,237,0.20)" }}>
+          <span className="text-xs font-semibold" style={{ color: "#c4b5fd" }}>Выбран</span>
+          <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#a78bfa" }} />
         </div>
       )}
-    </motion.button>
+    </motion.div>
   );
 }
 
-function StateCard({
-  title,
-  description,
-  retry,
-}: {
-  title: string;
-  description: string;
-  retry?: () => void;
-}) {
-  return (
-    <div className="col-span-full rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-      <p className="font-bold text-white">{title}</p>
-      <p className="mt-2 text-sm text-white/45">{description}</p>
-      {retry && (
-        <button
-          type="button"
-          onClick={retry}
-          className="mt-5 inline-flex items-center gap-2 rounded-xl border border-purple-400/30 bg-purple-500/10 px-4 py-2 text-sm text-purple-100"
-        >
-          <RefreshCw className="h-4 w-4" /> Повторить
-        </button>
-      )}
-    </div>
-  );
-}
+const MAX_URL = "https://max.ru/id6321431962_1_bot";
+const TELEGRAM_URL = "https://t.me/marketcards163bot";
 
-function OrderPanel({
-  product,
-  loading,
-  error,
-  retry,
-  selectedOfferId,
-  onOffer,
-  email,
-  onEmail,
-}: {
-  product: CatalogProductDetail | null;
-  loading: boolean;
-  error: boolean;
-  retry: () => void;
-  selectedOfferId: string | null;
-  onOffer: (id: string) => void;
-  email: string;
-  onEmail: (value: string) => void;
-}) {
-  const selectedOffer =
-    product?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
+function SteamQuoteForm({ product }: { product: Product }) {
+  const currencies = product.steamForm?.currencies ?? [];
+  const [steamLogin, setSteamLogin] = useState("");
+  const [currency, setCurrency] = useState<SteamCurrency>(currencies[0] ?? "RUB");
+  const [amount, setAmount] = useState("");
+  const [quote, setQuote] = useState<SteamQuote | null>(null);
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const maxFractionDigits = product.steamForm?.amountRules.find(
+    (rule) => rule.currency === currency,
+  )?.maxFractionDigits ?? 2;
 
-  return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl">
-      <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-4">
-        <ShoppingCart className="h-4 w-4 text-cyan-300" />
-        <span className="text-sm font-bold text-white">Панель заказа</span>
-      </div>
-      <div className="space-y-5 px-5 py-5">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-white/45">
-            <LoaderCircle className="h-4 w-4 animate-spin" /> Загружаем
-            предложения
-          </div>
-        )}
-        {error && (
-          <div className="rounded-xl border border-red-400/20 bg-red-500/5 p-4 text-center">
-            <p className="text-sm text-red-100">
-              Не удалось загрузить предложения
-            </p>
-            <button
-              type="button"
-              onClick={retry}
-              className="mt-3 text-xs font-semibold text-cyan-300"
-            >
-              Повторить
-            </button>
-          </div>
-        )}
-        {!loading && !error && product && (
-          <>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-white/35">
-                Выбранный товар
-              </p>
-              <p className="mt-2 text-sm font-bold text-white">
-                {product.name}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-white/40">
-                {product.description}
-              </p>
-            </div>
-            <div className="border-t border-white/10 pt-4">
-              <p className="mb-3 text-[10px] uppercase tracking-wider text-white/35">
-                Номинал или предложение
-              </p>
-              {product.offers.length === 0 ? (
-                <p className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-100">
-                  У товара сейчас нет доступных предложений
-                </p>
-              ) : (
-                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                  {product.offers.map((offer) => (
-                    <button
-                      key={offer.id}
-                      type="button"
-                      disabled={!offer.available}
-                      onClick={() => onOffer(offer.id)}
-                      className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-                      style={
-                        selectedOfferId === offer.id
-                          ? {
-                              background: "rgba(124,58,237,0.18)",
-                              border: "1px solid rgba(124,58,237,0.5)",
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.03)",
-                              border: "1px solid rgba(255,255,255,0.08)",
-                            }
-                      }
-                    >
-                      <span className="text-xs font-semibold text-white">
-                        {offer.nominal.label}
-                      </span>
-                      <span className="shrink-0 text-xs font-bold text-cyan-300">
-                        {formatPrice(offer)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-        {!loading && !error && !product && (
-          <p className="py-6 text-center text-sm text-white/35">
-            Выберите товар
-          </p>
-        )}
-
-        <div className="border-t border-white/10 pt-4">
-          <label
-            className="mb-2 block text-[10px] uppercase tracking-wider text-white/35"
-            htmlFor="delivery-email"
-          >
-            Email для доставки
-          </label>
-          <input
-            id="delivery-email"
-            type="email"
-            value={email}
-            onChange={(event) => onEmail(event.target.value)}
-            placeholder="your@email.com"
-            className="w-full rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/20 focus:border-purple-400/50"
-          />
-        </div>
-
-        <div className="flex items-center justify-between border-y border-white/10 py-3">
-          <span className="text-sm text-white/45">Итого</span>
-          <span className="text-lg font-black text-cyan-300">
-            {selectedOffer ? formatPrice(selectedOffer) : "—"}
-          </span>
-        </div>
-        <button
-          type="button"
-          disabled
-          className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/5 py-3.5 text-sm font-bold text-white/35"
-        >
-          Оплата подключается
-        </button>
-        <p className="text-center text-[10px] leading-relaxed text-white/30">
-          Email сохраняется только в форме. Заказ и оплата не создаются.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export default function HomePage() {
-  const [categoryId, setCategoryId] = useState<CatalogCategory["id"] | null>(
-    null,
-  );
-  const [productId, setProductId] = useState<string | null>(null);
-  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [search, setSearch] = useState("");
-
-  const categoriesQuery = useQuery({
-    queryKey: ["catalog", "categories"],
-    queryFn: ({ signal }) => fetchCatalogCategories(signal),
-    retry: 1,
-  });
-  const categories = categoriesQuery.data?.categories ?? [];
-
-  useEffect(() => {
-    if (!categoryId && categories[0]) setCategoryId(categories[0].id);
-  }, [categories, categoryId]);
-
-  const productsQuery = useQuery({
-    queryKey: ["catalog", "products", categoryId],
-    queryFn: ({ signal }) => fetchCatalogProducts(categoryId!, signal),
-    enabled: Boolean(categoryId),
-    retry: 1,
-  });
-  const products = productsQuery.data?.products ?? [];
-
-  useEffect(() => {
-    if (products.length === 0) {
-      setProductId(null);
-      return;
+  const calculate = async () => {
+    setPending(true);
+    setQuote(null);
+    setError("");
+    try {
+      const response = await fetchSteamQuote({ steamLogin, currency, amount });
+      setQuote(response.quote);
+    } catch {
+      setError("Не удалось рассчитать цену. Проверьте логин Steam и сумму.");
+    } finally {
+      setPending(false);
     }
-    if (!products.some((product) => product.id === productId))
-      setProductId(products[0].id);
-  }, [products, productId]);
-
-  const detailQuery = useQuery({
-    queryKey: ["catalog", "product", categoryId, productId],
-    queryFn: ({ signal }) =>
-      fetchCatalogProduct(categoryId!, productId!, signal),
-    enabled: Boolean(categoryId && productId),
-    retry: 1,
-  });
-  const detail = detailQuery.data?.product ?? null;
-
-  useEffect(() => {
-    const firstAvailable =
-      detail?.offers.find((offer) => offer.available) ?? null;
-    setSelectedOfferId(firstAvailable?.id ?? null);
-  }, [detail]);
-
-  const filteredProducts = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("ru");
-    if (!query) return products;
-    return products.filter((product) =>
-      [product.name, product.description, product.region, product.platform]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase("ru").includes(query)),
-    );
-  }, [products, search]);
-
-  const chooseCategory = (id: CatalogCategory["id"]) => {
-    setCategoryId(id);
-    setProductId(null);
-    setSelectedOfferId(null);
-    setSearch("");
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#050818] font-sans text-white">
-      <div
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-        aria-hidden="true"
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/40" htmlFor="steam-login">Логин Steam</label>
+        <input
+          id="steam-login"
+          value={steamLogin}
+          onChange={(event) => { setSteamLogin(event.target.value); setQuote(null); }}
+          placeholder="Имя аккаунта Steam"
+          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-400/60"
+        />
+        <p className="mt-1.5 text-[10px] leading-relaxed text-white/35">Введите имя аккаунта, которое используется для входа в Steam. Не SteamID и не ссылку на профиль.</p>
+      </div>
+      <div className="grid grid-cols-[96px_1fr] gap-2">
+        <div>
+          <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/40" htmlFor="steam-currency">Валюта</label>
+          <select
+            id="steam-currency"
+            value={currency}
+            onChange={(event) => { setCurrency(event.target.value as SteamCurrency); setQuote(null); }}
+            className="w-full rounded-xl border border-white/10 bg-[#090d20] px-2 py-2.5 text-sm text-white outline-none"
+          >
+            {currencies.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/40" htmlFor="steam-amount">Сумма пополнения</label>
+          <input
+            id="steam-amount"
+            inputMode="decimal"
+            value={amount}
+            onChange={(event) => { setAmount(event.target.value.replace(",", ".")); setQuote(null); }}
+            placeholder={`Сумма в ${currency}`}
+            aria-describedby="steam-amount-help"
+            className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-400/60"
+          />
+        </div>
+      </div>
+      <p id="steam-amount-help" className="text-[10px] leading-relaxed text-white/35">До {maxFractionDigits} знаков после запятой. Минимальную и максимальную сумму FazerCards публично не указывает.</p>
+      <button
+        type="button"
+        disabled={pending || !steamLogin.trim() || !amount.trim()}
+        onClick={() => void calculate()}
+        className="w-full rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-3 py-2.5 text-xs font-bold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <div className="absolute -left-[14%] -top-[20%] h-[62%] w-[62%] rounded-full bg-purple-700/15 blur-[145px]" />
-        <div className="absolute -bottom-[18%] -right-[12%] h-[55%] w-[55%] rounded-full bg-cyan-600/10 blur-[135px]" />
+        {pending ? "Проверяем аккаунт…" : "Рассчитать цену"}
+      </button>
+      {quote && (
+        <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-emerald-200/70">Итоговая цена</p>
+          <p className="mt-1 text-xl font-black text-white">{formatPriceRub(quote.priceRub)}</p>
+        </div>
+      )}
+      {error && <p className="text-xs leading-relaxed text-rose-300">{error}</p>}
+    </div>
+  );
+}
+
+/* — Order Panel — */
+function OrderPanel({ prod, filtered, onSelect, selectedOfferId, onOffer, nominalsExpanded, onToggleNominals, email, onEmail }: {
+  prod: Product | null;
+  filtered: Product[];
+  onSelect: (slug: string) => void;
+  selectedOfferId: string | null;
+  onOffer: (id: string) => void;
+  nominalsExpanded: boolean;
+  onToggleNominals: () => void;
+  email: string;
+  onEmail: (s: string) => void;
+}) {
+  const selectedOffer = prod?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
+  const availableOffers = sortedAvailableOffers(prod?.offers ?? []);
+  const shownOffers = visibleOffers(prod?.offers ?? [], nominalsExpanded);
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", backdropFilter: "blur(20px)" }}>
+      {/* header */}
+      <div className="flex items-center gap-2.5 px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <ShoppingCart className="w-4 h-4" style={{ color: "#67e8f9" }} />
+        <span className="text-sm font-bold text-white">Панель заказа</span>
+      </div>
+
+      <div className="px-5 py-5 space-y-5">
+
+        {/* mini product cards */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+            {prod ? prod.cat : "Выберите товар"}
+          </p>
+          <div className="space-y-2">
+            {filtered.map((p) => {
+              const { Icon } = p;
+              const sel = prod?.slug === p.slug;
+              return (
+                <button
+                  key={p.slug}
+                  onClick={() => onSelect(p.slug)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left"
+                  style={sel ? {
+                    background: "rgba(124,58,237,0.14)",
+                    border: "1px solid rgba(124,58,237,0.50)",
+                    boxShadow: "0 0 16px rgba(124,58,237,0.15)",
+                  } : {
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }}
+                >
+                  {/* colorful icon */}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md" style={{ background: p.iconBg }}>
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  {/* text */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate">{p.flag} {p.title}</p>
+                    <p className="text-[10px] truncate mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>{p.sub}</p>
+                  </div>
+                  {/* selected dot */}
+                  {sel && <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "linear-gradient(135deg,#c084fc,#67e8f9)" }} />}
+                  {/* tag badge */}
+                  {!sel && p.tag && (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
+                      style={{ background: "rgba(124,58,237,0.20)", color: "#c4b5fd", border: "1px solid rgba(124,58,237,0.30)" }}>
+                      {p.tag}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+
+        <div>
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>{prod?.slug === "steam-top-up" ? "Данные пополнения" : "Номинал или вариант"}</p>
+          {prod?.slug === "steam-top-up" ? (
+            <SteamQuoteForm key={prod.slug} product={prod} />
+          ) : shownOffers.length > 0 ? (
+            <>
+            <div className="grid grid-cols-2 gap-2 pr-1">
+              {shownOffers.map((offer) => (
+                <button
+                  type="button"
+                  key={offer.id}
+                  disabled={!offer.available}
+                  onClick={() => onOffer(offer.id)}
+                  className="rounded-xl px-2 py-2 text-left text-xs transition-all disabled:opacity-40"
+                  style={selectedOfferId === offer.id ? {
+                    background: "rgba(124,58,237,0.16)",
+                    border: "1px solid rgba(124,58,237,0.55)",
+                  } : {
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <span className="block font-semibold text-white">{offer.label}</span>
+                  <span className="mt-0.5 block text-cyan-300">{formatPriceRub(offer.priceRub)}</span>
+                  {offer.stock !== null && <span className="mt-0.5 block text-[9px] text-white/35">В наличии: {offer.stock}</span>}
+                </button>
+              ))}
+            </div>
+            {availableOffers.length > 6 && (
+              <button
+                type="button"
+                onClick={onToggleNominals}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs font-semibold text-purple-200"
+              >
+                {nominalToggleLabel(nominalsExpanded)}
+              </button>
+            )}
+            </>
+          ) : (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/45">Сейчас недоступно</p>
+          )}
+        </div>
+
+        {/* divider */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+
+        {/* email */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>Email для доставки</p>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => onEmail(e.target.value)}
+            placeholder="your@email.com"
+            className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder:text-white/20 outline-none transition-all"
+            style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.09)" }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(124,58,237,0.55)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)")}
+          />
+        </div>
+
+        <button
+          type="button"
+          disabled
+          className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white/55"
+          style={{ background: "rgba(124,58,237,0.18)", border: "1px solid rgba(124,58,237,0.25)" }}
+        >
+          Оплата подключается
+        </button>
+        {selectedOffer && (
+          <p className="text-center text-[10px] text-white/35">Выбран вариант: {selectedOffer.label} · {formatPriceRub(selectedOffer.priceRub)}</p>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
+/* ══════════════════════════════════════════════════════════════ Page */
+
+export default function HomePage() {
+  const [cat, setCat]           = useState<StorefrontCategory["id"]>("apple");
+  const [selId, setSelId]       = useState<string | null>("app-store-turkey");
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [nominalView, dispatchNominalView] = useReducer(nominalViewReducer, {
+    productSlug: "app-store-turkey",
+    expanded: false,
+  });
+  const [email, setEmail]       = useState("");
+
+  const categoriesQuery = useQuery({
+    queryKey: ["storefront", "categories"],
+    queryFn: ({ signal }) => fetchStorefrontCategories(signal),
+  });
+  const productsQuery = useQuery({
+    queryKey: ["storefront", "products"],
+    queryFn: ({ signal }) => fetchStorefrontProducts(signal),
+  });
+  const products = (productsQuery.data?.products ?? []).map(toProduct);
+  const categories = categoriesQuery.data?.categories ?? [];
+  const filtered = products.filter((p) => p.cat === cat);
+  const selected = products.find((p) => p.slug === selId) ?? null;
+
+  useEffect(() => {
+    if (!selected || selectedOfferId) return;
+    setSelectedOfferId(sortedAvailableOffers(selected.offers)[0]?.id ?? null);
+  }, [selected, selectedOfferId]);
+
+  const pickCat = (c: StorefrontCategory["id"]) => {
+    setCat(c);
+    const first = products.find((p) => p.cat === c);
+    if (first) {
+      setSelId(first.slug);
+      setSelectedOfferId(sortedAvailableOffers(first.offers)[0]?.id ?? null);
+      dispatchNominalView({ type: "select_product", productSlug: first.slug });
+    }
+  };
+
+  const pickProd = (slug: string) => {
+    const product = products.find((item) => item.slug === slug);
+    setSelId(slug);
+    setSelectedOfferId(product ? sortedAvailableOffers(product.offers)[0]?.id ?? null : null);
+    dispatchNominalView({ type: "select_product", productSlug: slug });
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050818] text-white font-sans overflow-x-hidden">
+
+      {/* ── Global ambient orbs ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <div style={{ position:"absolute", top:"-20%", left:"-14%", width:"62%", height:"62%", background:"rgba(109,40,217,0.16)", filter:"blur(145px)", borderRadius:"50%" }} />
+        <div style={{ position:"absolute", bottom:"-18%", right:"-12%", width:"55%", height:"55%", background:"rgba(6,182,212,0.11)", filter:"blur(135px)", borderRadius:"50%" }} />
+        <div style={{ position:"absolute", top:"38%", left:"54%", width:"32%", height:"32%", background:"rgba(79,70,229,0.09)", filter:"blur(110px)", borderRadius:"50%" }} />
       </div>
 
       <Header />
+
       <main className="relative z-10">
-        <section className="relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden px-4 pb-10 pt-24 text-center">
-          <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center space-y-7">
+
+        {/* ══ HERO ══════════════════════════════════════════════════════ */}
+        <section className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 pt-24 pb-10 overflow-hidden">
+          {/* Hero-local orb */}
+          <div aria-hidden="true" style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-56%)", width:"800px", height:"800px", background:"rgba(109,40,217,0.14)", filter:"blur(160px)", borderRadius:"50%", pointerEvents:"none" }} />
+
+          <div className="relative z-10 max-w-5xl mx-auto space-y-7 flex flex-col items-center">
+
+            {/* headline */}
             <motion.h1
-              initial={{ opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-5xl font-black tracking-tight md:text-7xl"
+              initial={{ opacity:0, y:26 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.55, delay:0.08 }}
+              className="font-black tracking-tight leading-[1.05]"
+              style={{ fontSize:"clamp(2.6rem, 7vw, 5.5rem)", textShadow:"0 0 100px rgba(124,58,237,0.40)" }}
             >
-              <span className="bg-gradient-to-r from-purple-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">
+              <span style={{ background:"linear-gradient(90deg,#c084fc,#818cf8,#67e8f9)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
                 Маркет
               </span>{" "}
-              цифровых товаров
+              <span className="text-white">цифровых товаров</span>
             </motion.h1>
+
+            {/* sub */}
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="max-w-2xl text-lg leading-relaxed text-white/50"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.5, delay:0.18 }}
+              className="text-lg max-w-2xl leading-relaxed"
+              style={{ color:"rgba(255,255,255,0.50)" }}
             >
-              Актуальные подарочные карты, игровые ключи и пополнения из
-              каталога FazerCards
+              Витрина цифровых товаров на платформе MAX: подарочные карты, Steam, Telegram Stars, игровые пополнения и цифровые коды
             </motion.p>
+
+            {/* benefit pills */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.5, delay:0.26 }}
               className="flex flex-wrap justify-center gap-3"
             >
               {[
-                { Icon: RefreshCw, text: "Живой каталог" },
-                { Icon: Shield, text: "Цена рассчитывается сервером" },
-                { Icon: Globe, text: "Товары разных регионов" },
+                { Icon: Zap,    text: "Мгновенная выдача на email" },
+                { Icon: Shield, text: "Официальные лицензии" },
+                { Icon: Globe,  text: "Поддержка 24/7" },
               ].map(({ Icon, text }) => (
-                <div
-                  key={text}
-                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/65"
-                >
-                  <Icon className="h-4 w-4 text-purple-300" /> {text}
+                <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+                  style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", color:"rgba(255,255,255,0.68)" }}>
+                  <Icon className="w-4 h-4" style={{ color:"#a78bfa" }} />
+                  {text}
                 </div>
               ))}
             </motion.div>
+
+            {/* CTAs */}
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row"
+              initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5, delay:0.34 }}
+              className="flex flex-col gap-3 lg:flex-row"
             >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2">
                 <a
                   href={MAX_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-cyan-600 px-6 py-4 text-sm font-bold shadow-[0_0_32px_rgba(124,58,237,0.4)] sm:w-[220px]"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050818] sm:w-[220px]"
+                  style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
                 >
-                  <Sparkles className="h-5 w-5" /> Перейти в MAX
+                  <Sparkles className="h-5 w-5 shrink-0" />
+                  <span>Перейти в MAX</span>
                 </a>
                 <a
                   href={TELEGRAM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-cyan-600 px-6 py-4 text-sm font-bold shadow-[0_0_32px_rgba(124,58,237,0.4)] sm:w-[220px]"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050818] sm:w-[220px]"
+                  style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)", boxShadow:"0 0 32px rgba(124,58,237,0.40)", textDecoration:"none" }}
                 >
-                  <Send className="h-5 w-5" /> Перейти в Telegram
+                  <Send className="h-5 w-5 shrink-0" />
+                  <span>Перейти в Telegram</span>
                 </a>
               </div>
               <button
-                type="button"
-                onClick={() =>
-                  document
-                    .getElementById("catalog")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-8 py-4 font-bold text-white/75"
+                onClick={() => document.getElementById("catalog")?.scrollIntoView({ behavior:"smooth" })}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all duration-300"
+                style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.14)", color:"rgba(255,255,255,0.75)", backdropFilter:"blur(12px)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background="rgba(255,255,255,0.10)"; e.currentTarget.style.borderColor="rgba(124,58,237,0.40)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background="rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.14)"; }}
               >
-                Каталог товаров <ArrowRight className="h-5 w-5" />
+                <span>Каталог товаров</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </motion.div>
           </div>
+
+          {/* feature cards strip */}
+          <motion.div
+            initial={{ opacity:0, y:36 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.6, delay:0.50 }}
+            className="relative z-10 mt-16 w-full max-w-5xl mx-auto px-4"
+            style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:"16px" }}
+          >
+            {[
+              { Icon: Shield,    label:"Безопасная оплата",   desc:"Сертифицированные системы",      grad:"linear-gradient(135deg,#7c3aed,#4f46e5)" },
+              { Icon: Zap,       label:"Мгновенная выдача",   desc:"Код придёт в течение 5 минут",   grad:"linear-gradient(135deg,#06b6d4,#2563eb)" },
+              { Icon: Globe,     label:"Все регионы",         desc:"TR, US, RU, IN и другие",        grad:"linear-gradient(135deg,#6366f1,#7c3aed)" },
+              { Icon: CheckCircle2, label:"Поддержка 24/7",   desc:"Ответим на любой вопрос",        grad:"linear-gradient(135deg,#0d9488,#06b6d4)" },
+            ].map(({ Icon, label, desc, grad }, i) => (
+              <motion.div
+                key={label}
+                initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.38, delay:0.56 + i*0.06 }}
+                className="flex flex-col items-center text-center p-5 rounded-2xl transition-all duration-300 group"
+                style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", backdropFilter:"blur(20px)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor="rgba(124,58,237,0.30)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.borderColor="rgba(255,255,255,0.08)"; }}
+              >
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 shadow-lg" style={{ background:grad }}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-bold text-white mb-1">{label}</p>
+                <p className="text-xs" style={{ color:"rgba(255,255,255,0.40)" }}>{desc}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* scroll hint */}
+          <div className="mt-12 flex flex-col items-center gap-2 opacity-30">
+            <div className="w-px h-10" style={{ background:"linear-gradient(to bottom, transparent, rgba(255,255,255,0.5))" }} />
+            <span className="text-[10px] uppercase tracking-widest" style={{ color:"rgba(255,255,255,0.5)" }}>прокрутите вниз</span>
+          </div>
         </section>
 
-        <section id="catalog" className="px-4 py-16">
-          <div className="mx-auto max-w-[1380px]">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        {/* ══ CATALOG + ORDER PANEL ═══════════════════════════════════ */}
+        <section id="catalog" className="py-16 px-4">
+          <div className="max-w-[1380px] mx-auto">
+
+            {/* section title */}
+            <motion.div
+              initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }}
+              className="mb-8"
+            >
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-2" style={{ textShadow:"0 0 60px rgba(124,58,237,0.25)" }}>
+                Каталог товаров
+              </h2>
+              <p className="text-base" style={{ color:"rgba(255,255,255,0.45)" }}>Выберите товар — панель заказа обновится автоматически</p>
+            </motion.div>
+
+            {/* two-column */}
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_308px]">
+
+              {/* left: category tabs + grid */}
               <div>
-                <h2 className="text-3xl font-black md:text-4xl">
-                  Каталог товаров
-                </h2>
-                <p className="mt-2 text-white/45">
-                  Только доступные позиции FazerCards. Цены включают наценку
-                  магазина.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 sm:w-72">
-                <Search className="h-4 w-4 text-white/35" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Поиск в категории"
-                  className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25"
-                />
-              </div>
-            </div>
-
-            {categoriesQuery.isPending && (
-              <StateCard
-                title="Загружаем категории"
-                description="Получаем актуальный каталог FazerCards…"
-              />
-            )}
-            {categoriesQuery.isError && (
-              <StateCard
-                title="Каталог временно недоступен"
-                description="Проверьте соединение и попробуйте ещё раз."
-                retry={() => void categoriesQuery.refetch()}
-              />
-            )}
-            {!categoriesQuery.isPending &&
-              !categoriesQuery.isError &&
-              categories.length === 0 && (
-                <StateCard
-                  title="Каталог пуст"
-                  description="Поставщик пока не вернул доступных категорий."
-                  retry={() => void categoriesQuery.refetch()}
-                />
-              )}
-
-            {categories.length > 0 && (
-              <>
-                <div className="mb-5 flex items-center gap-2 overflow-x-auto pb-1">
-                  {categories.map((category) => (
+                {/* tabs */}
+                <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+                  {categories.map((c) => (
                     <button
-                      key={category.id}
-                      type="button"
-                      onClick={() => chooseCategory(category.id)}
-                      className="flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition"
-                      style={
-                        categoryId === category.id
-                          ? {
-                              background:
-                                "linear-gradient(135deg,#7c3aed,#6d28d9)",
-                              boxShadow: "0 0 18px rgba(124,58,237,0.4)",
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.09)",
-                              color: "rgba(255,255,255,0.6)",
-                            }
-                      }
+                      key={c.id}
+                      onClick={() => pickCat(c.id)}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shrink-0 transition-all duration-200"
+                      style={cat === c.id ? {
+                        background:"linear-gradient(135deg,#7c3aed,#6d28d9)",
+                        color:"#fff",
+                        boxShadow:"0 0 18px rgba(124,58,237,0.40)",
+                      } : {
+                        background:"rgba(255,255,255,0.04)",
+                        border:"1px solid rgba(255,255,255,0.09)",
+                        color:"rgba(255,255,255,0.55)",
+                      }}
                     >
-                      <span>{categoryVisuals[category.id].emoji}</span>
-                      <span>{category.name}</span>
-                      <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px]">
-                        {category.productCount}
-                      </span>
+                      <span>{c.emoji}</span><span>{c.name}</span>
                     </button>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                  <div>
-                    <motion.div
-                      layout
-                      className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
-                    >
-                      {productsQuery.isPending &&
-                        Array.from({ length: 9 }).map((_, index) => (
-                          <div
-                            key={index}
-                            className="h-44 animate-pulse rounded-2xl border border-white/5 bg-white/[0.03]"
-                          />
-                        ))}
-                      {productsQuery.isError && (
-                        <StateCard
-                          title="Не удалось загрузить товары"
-                          description="FazerCards не ответил или вернул ошибку."
-                          retry={() => void productsQuery.refetch()}
-                        />
-                      )}
-                      {!productsQuery.isPending &&
-                        !productsQuery.isError &&
-                        products.length === 0 && (
-                          <StateCard
-                            title="Нет доступных товаров"
-                            description="В этой категории сейчас нет предложений."
-                            retry={() => void productsQuery.refetch()}
-                          />
-                        )}
-                      {!productsQuery.isPending &&
-                        !productsQuery.isError &&
-                        products.length > 0 &&
-                        filteredProducts.length === 0 && (
-                          <StateCard
-                            title="Ничего не найдено"
-                            description="Попробуйте изменить поисковый запрос."
-                          />
-                        )}
-                      <AnimatePresence mode="popLayout">
-                        {filteredProducts.map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            selected={product.id === productId}
-                            onSelect={() => setProductId(product.id)}
-                          />
-                        ))}
-                      </AnimatePresence>
-                    </motion.div>
+                {/* product grid */}
+                <motion.div layout style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(210px, 1fr))", gap:"14px" }}>
+                  <AnimatePresence mode="popLayout">
+                    {filtered.map((p) => (
+                      <ProductCard key={p.slug} p={p} selected={selId === p.slug} onSelect={() => pickProd(p.slug)} />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+                {(categoriesQuery.isPending || productsQuery.isPending) && (
+                  <p className="py-10 text-center text-sm text-white/45">Загружаем актуальные товары…</p>
+                )}
+                {(categoriesQuery.isError || productsQuery.isError) && (
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-white/55">Не удалось загрузить витрину</p>
+                    <button type="button" onClick={() => { void categoriesQuery.refetch(); void productsQuery.refetch(); }} className="mt-3 rounded-xl border border-purple-400/30 px-4 py-2 text-xs text-purple-200">Повторить</button>
                   </div>
-                  <div className="lg:sticky lg:top-24">
-                    <OrderPanel
-                      product={detail}
-                      loading={detailQuery.isPending && Boolean(productId)}
-                      error={detailQuery.isError}
-                      retry={() => void detailQuery.refetch()}
-                      selectedOfferId={selectedOfferId}
-                      onOffer={setSelectedOfferId}
-                      email={email}
-                      onEmail={setEmail}
-                    />
-                  </div>
+                )}
+
+                {/* trust strip */}
+                <div className="flex flex-wrap gap-3 mt-5">
+                  {[
+                    { Icon:CheckCircle2, text:"Проверенные коды",     color:"text-emerald-400" },
+                    { Icon:Zap,          text:"Выдача за 1–5 минут",  color:"text-cyan-400" },
+                    { Icon:Shield,       text:"Официальные лицензии", color:"text-purple-400" },
+                  ].map(({ Icon, text, color }) => (
+                    <div key={text} className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                      style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)" }}>
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+                      <span className="text-xs" style={{ color:"rgba(255,255,255,0.48)" }}>{text}</span>
+                    </div>
+                  ))}
                 </div>
-              </>
-            )}
+              </div>
+
+              {/* right: sticky sidebar */}
+              <div className="flex flex-col gap-4" style={{ position:"sticky", top:"88px" }}>
+                <OrderPanel prod={selected} filtered={filtered} onSelect={pickProd} selectedOfferId={selectedOfferId} onOffer={setSelectedOfferId} nominalsExpanded={nominalView.expanded} onToggleNominals={() => dispatchNominalView({ type: "toggle" })} email={email} onEmail={setEmail} />
+              </div>
+            </div>
           </div>
         </section>
 
-        <section id="how" className="px-4 py-20">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-12 text-center">
-              <h2 className="text-3xl font-black md:text-4xl">
-                Как это работает сейчас
-              </h2>
-              <p className="mt-3 text-white/45">
-                Каталог уже настоящий, оформление появится следующим этапом
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* ══ HOW IT WORKS ════════════════════════════════════════════ */}
+        <section id="how" className="py-20 px-4">
+          <div className="max-w-5xl mx-auto">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Как это работает</h2>
+              <p style={{ color:"rgba(255,255,255,0.45)" }}>Четыре шага до получения товара</p>
+            </motion.div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:"16px" }}>
               {[
-                {
-                  n: "01",
-                  title: "Выберите категорию",
-                  desc: "Категории загружаются с FazerCards",
-                },
-                {
-                  n: "02",
-                  title: "Выберите товар",
-                  desc: "Доступность обновляется сервером",
-                },
-                {
-                  n: "03",
-                  title: "Выберите номинал",
-                  desc: "Цена уже включает наценку магазина",
-                },
-                {
-                  n: "04",
-                  title: "Ожидайте оплату",
-                  desc: "Checkout будет подключён отдельно",
-                },
-              ].map((item) => (
-                <div
-                  key={item.n}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-6"
+                { n:"01", title:"Выберите товар",     desc:"Найдите нужную карту или ключ" },
+                { n:"02", title:"Укажите номинал",    desc:"Выберите сумму и укажите email" },
+                { n:"03", title:"Оплатите заказ",     desc:"Безопасная оплата банковской картой" },
+                { n:"04", title:"Получите код",       desc:"Цифровой код придёт на email мгновенно" },
+              ].map((s, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay: i*0.08 }}
+                  className="p-6 rounded-2xl relative"
+                  style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)" }}
                 >
-                  <div className="mb-4 text-4xl font-black text-purple-300/40">
-                    {item.n}
+                  <div className="text-5xl font-black leading-none mb-4"
+                    style={{ background:"linear-gradient(180deg,rgba(167,139,250,0.40) 0%,transparent 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
+                    {s.n}
                   </div>
-                  <h3 className="font-bold">{item.title}</h3>
-                  <p className="mt-2 text-xs leading-relaxed text-white/45">
-                    {item.desc}
-                  </p>
-                </div>
+                  <h3 className="text-base font-bold text-white mb-1.5">{s.title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color:"rgba(255,255,255,0.45)" }}>{s.desc}</p>
+                </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="faq" className="px-4 py-20">
-          <div className="mx-auto max-w-2xl">
-            <div className="mb-10 text-center">
-              <h2 className="text-3xl font-black md:text-4xl">
-                Частые вопросы
-              </h2>
-            </div>
+        {/* ══ FAQ ═════════════════════════════════════════════════════ */}
+        <section id="faq" className="py-20 px-4">
+          <div className="max-w-2xl mx-auto">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Частые вопросы</h2>
+              <p style={{ color:"rgba(255,255,255,0.45)" }}>Нашли вопрос — нашли ответ</p>
+            </motion.div>
             <div className="space-y-3">
-              {FAQ_ITEMS.map((item) => (
-                <Accordion key={item.q} {...item} />
+              {FAQ_ITEMS.map((item, i) => (
+                <motion.div key={i} initial={{ opacity:0, y:12 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay:i*0.06 }}>
+                  <Accordion q={item.q} a={item.a} />
+                </motion.div>
               ))}
             </div>
           </div>
         </section>
+
+        {/* ══ CONTACTS ════════════════════════════════════════════════ */}
+        <section id="contacts" className="py-20 px-4">
+          <div className="max-w-xl mx-auto">
+            <motion.div initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Контакты</h2>
+              <p style={{ color:"rgba(255,255,255,0.45)" }}>Поддержка 24/7 — ответим на любой вопрос</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }}
+              className="rounded-3xl overflow-hidden"
+              style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.09)", backdropFilter:"blur(20px)" }}
+            >
+              {/* top rainbow line */}
+              <div className="h-1" style={{ background:"linear-gradient(90deg,#7c3aed,#06b6d4)" }} />
+              <div className="px-8 py-8 space-y-5">
+                {[
+                  { label:"Телефон", val:"+7 (927) 028-07-88",  grad:"linear-gradient(135deg,#7c3aed,#4f46e5)" },
+                  { label:"Email",   val:"d.v.mash@mail.ru",    grad:"linear-gradient(135deg,#06b6d4,#2563eb)" },
+                  { label:"Режим",   val:"Поддержка 24/7",      grad:"linear-gradient(135deg,#6366f1,#7c3aed)" },
+                ].map(({ label, val, grad }) => (
+                  <div key={label} className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-xs font-black" style={{ background:grad }}>
+                      {label[0]}
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>{label}</p>
+                      <p className="text-sm font-semibold text-white">{val}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
       </main>
+
       <Footer />
     </div>
   );

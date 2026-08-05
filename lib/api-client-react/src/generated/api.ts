@@ -5,25 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
 import type {
-  CatalogCategories200,
-  CatalogCategoryId,
-  CatalogProduct200,
-  CatalogProducts200,
-  CatalogProductsParams,
   HealthStatus,
+  SteamQuoteInput,
+  StorefrontCategories200,
+  StorefrontProduct200,
+  StorefrontProducts200,
+  StorefrontSteamQuote200,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -54,7 +57,6 @@ export const getHealthCheckUrl = () => {
 };
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const healthCheck = async (
@@ -125,32 +127,32 @@ export function useHealthCheck<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getCatalogCategoriesUrl = () => {
-  return `/api/catalog/categories`;
+export const getStorefrontCategoriesUrl = () => {
+  return `/api/storefront/categories`;
 };
 
 /**
- * @summary List live FazerCards catalog groups
+ * @summary List the four public storefront categories
  */
-export const catalogCategories = async (
+export const storefrontCategories = async (
   options?: RequestInit,
-): Promise<CatalogCategories200> => {
-  return customFetch<CatalogCategories200>(getCatalogCategoriesUrl(), {
+): Promise<StorefrontCategories200> => {
+  return customFetch<StorefrontCategories200>(getStorefrontCategoriesUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getCatalogCategoriesQueryKey = () => {
-  return [`/api/catalog/categories`] as const;
+export const getStorefrontCategoriesQueryKey = () => {
+  return [`/api/storefront/categories`] as const;
 };
 
-export const getCatalogCategoriesQueryOptions = <
-  TData = Awaited<ReturnType<typeof catalogCategories>>,
+export const getStorefrontCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof storefrontCategories>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof catalogCategories>>,
+    Awaited<ReturnType<typeof storefrontCategories>>,
     TError,
     TData
   >;
@@ -158,40 +160,40 @@ export const getCatalogCategoriesQueryOptions = <
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getCatalogCategoriesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getStorefrontCategoriesQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof catalogCategories>>
-  > = ({ signal }) => catalogCategories({ signal, ...requestOptions });
+    Awaited<ReturnType<typeof storefrontCategories>>
+  > = ({ signal }) => storefrontCategories({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof catalogCategories>>,
+    Awaited<ReturnType<typeof storefrontCategories>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type CatalogCategoriesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof catalogCategories>>
+export type StorefrontCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontCategories>>
 >;
-export type CatalogCategoriesQueryError = ErrorType<unknown>;
+export type StorefrontCategoriesQueryError = ErrorType<unknown>;
 
 /**
- * @summary List live FazerCards catalog groups
+ * @summary List the four public storefront categories
  */
 
-export function useCatalogCategories<
-  TData = Awaited<ReturnType<typeof catalogCategories>>,
+export function useStorefrontCategories<
+  TData = Awaited<ReturnType<typeof storefrontCategories>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof catalogCategories>>,
+    Awaited<ReturnType<typeof storefrontCategories>>,
     TError,
     TData
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getCatalogCategoriesQueryOptions(options);
+  const queryOptions = getStorefrontCategoriesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -200,92 +202,73 @@ export function useCatalogCategories<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getCatalogProductsUrl = (params: CatalogProductsParams) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : String(value));
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/catalog/products?${stringifiedParams}`
-    : `/api/catalog/products`;
+export const getStorefrontProductsUrl = () => {
+  return `/api/storefront/products`;
 };
 
 /**
- * @summary List live products in a catalog group
+ * @summary List the nine curated storefront products with live offers
  */
-export const catalogProducts = async (
-  params: CatalogProductsParams,
+export const storefrontProducts = async (
   options?: RequestInit,
-): Promise<CatalogProducts200> => {
-  return customFetch<CatalogProducts200>(getCatalogProductsUrl(params), {
+): Promise<StorefrontProducts200> => {
+  return customFetch<StorefrontProducts200>(getStorefrontProductsUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getCatalogProductsQueryKey = (params?: CatalogProductsParams) => {
-  return [`/api/catalog/products`, ...(params ? [params] : [])] as const;
+export const getStorefrontProductsQueryKey = () => {
+  return [`/api/storefront/products`] as const;
 };
 
-export const getCatalogProductsQueryOptions = <
-  TData = Awaited<ReturnType<typeof catalogProducts>>,
+export const getStorefrontProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof storefrontProducts>>,
   TError = ErrorType<unknown>,
->(
-  params: CatalogProductsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof catalogProducts>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getCatalogProductsQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getStorefrontProductsQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogProducts>>> = ({
-    signal,
-  }) => catalogProducts(params, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof storefrontProducts>>
+  > = ({ signal }) => storefrontProducts({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof catalogProducts>>,
+    Awaited<ReturnType<typeof storefrontProducts>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type CatalogProductsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof catalogProducts>>
+export type StorefrontProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontProducts>>
 >;
-export type CatalogProductsQueryError = ErrorType<unknown>;
+export type StorefrontProductsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List live products in a catalog group
+ * @summary List the nine curated storefront products with live offers
  */
 
-export function useCatalogProducts<
-  TData = Awaited<ReturnType<typeof catalogProducts>>,
+export function useStorefrontProducts<
+  TData = Awaited<ReturnType<typeof storefrontProducts>>,
   TError = ErrorType<unknown>,
->(
-  params: CatalogProductsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof catalogProducts>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getCatalogProductsQueryOptions(params, options);
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontProducts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStorefrontProductsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -294,46 +277,121 @@ export function useCatalogProducts<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getCatalogProductUrl = (
-  categoryId: CatalogCategoryId,
-  productId: string,
-) => {
-  return `/api/catalog/products/${categoryId}/${productId}`;
+export const getStorefrontSteamQuoteUrl = () => {
+  return `/api/storefront/steam/quote`;
 };
 
 /**
- * @summary Get one product and its live offers
+ * @summary Validate a Steam login and calculate a read-only top-up quote
  */
-export const catalogProduct = async (
-  categoryId: CatalogCategoryId,
-  productId: string,
+export const storefrontSteamQuote = async (
+  steamQuoteInput: SteamQuoteInput,
   options?: RequestInit,
-): Promise<CatalogProduct200> => {
-  return customFetch<CatalogProduct200>(
-    getCatalogProductUrl(categoryId, productId),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
+): Promise<StorefrontSteamQuote200> => {
+  return customFetch<StorefrontSteamQuote200>(getStorefrontSteamQuoteUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(steamQuoteInput),
+  });
 };
 
-export const getCatalogProductQueryKey = (
-  categoryId: CatalogCategoryId,
-  productId: string,
-) => {
-  return [`/api/catalog/products/${categoryId}/${productId}`] as const;
+export const getStorefrontSteamQuoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof storefrontSteamQuote>>,
+    TError,
+    { data: BodyType<SteamQuoteInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof storefrontSteamQuote>>,
+  TError,
+  { data: BodyType<SteamQuoteInput> },
+  TContext
+> => {
+  const mutationKey = ["storefrontSteamQuote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof storefrontSteamQuote>>,
+    { data: BodyType<SteamQuoteInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return storefrontSteamQuote(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
-export const getCatalogProductQueryOptions = <
-  TData = Awaited<ReturnType<typeof catalogProduct>>,
+export type StorefrontSteamQuoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontSteamQuote>>
+>;
+export type StorefrontSteamQuoteMutationBody = BodyType<SteamQuoteInput>;
+export type StorefrontSteamQuoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Validate a Steam login and calculate a read-only top-up quote
+ */
+export const useStorefrontSteamQuote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof storefrontSteamQuote>>,
+    TError,
+    { data: BodyType<SteamQuoteInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof storefrontSteamQuote>>,
+  TError,
+  { data: BodyType<SteamQuoteInput> },
+  TContext
+> => {
+  return useMutation(getStorefrontSteamQuoteMutationOptions(options));
+};
+
+export const getStorefrontProductUrl = (slug: string) => {
+  return `/api/storefront/products/${slug}`;
+};
+
+/**
+ * @summary Get one curated storefront product
+ */
+export const storefrontProduct = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<StorefrontProduct200> => {
+  return customFetch<StorefrontProduct200>(getStorefrontProductUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStorefrontProductQueryKey = (slug: string) => {
+  return [`/api/storefront/products/${slug}`] as const;
+};
+
+export const getStorefrontProductQueryOptions = <
+  TData = Awaited<ReturnType<typeof storefrontProduct>>,
   TError = ErrorType<unknown>,
 >(
-  categoryId: CatalogCategoryId,
-  productId: string,
+  slug: string,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof catalogProduct>>,
+      Awaited<ReturnType<typeof storefrontProduct>>,
       TError,
       TData
     >;
@@ -342,58 +400,48 @@ export const getCatalogProductQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getCatalogProductQueryKey(categoryId, productId);
+  const queryKey = queryOptions?.queryKey ?? getStorefrontProductQueryKey(slug);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogProduct>>> = ({
-    signal,
-  }) => catalogProduct(categoryId, productId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof storefrontProduct>>
+  > = ({ signal }) => storefrontProduct(slug, { signal, ...requestOptions });
 
   return {
     queryKey,
     queryFn,
-    enabled:
-      categoryId !== null &&
-      categoryId !== undefined &&
-      productId !== null &&
-      productId !== undefined,
+    enabled: slug !== null && slug !== undefined,
     ...queryOptions,
   } as UseQueryOptions<
-    Awaited<ReturnType<typeof catalogProduct>>,
+    Awaited<ReturnType<typeof storefrontProduct>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type CatalogProductQueryResult = NonNullable<
-  Awaited<ReturnType<typeof catalogProduct>>
+export type StorefrontProductQueryResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontProduct>>
 >;
-export type CatalogProductQueryError = ErrorType<unknown>;
+export type StorefrontProductQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get one product and its live offers
+ * @summary Get one curated storefront product
  */
 
-export function useCatalogProduct<
-  TData = Awaited<ReturnType<typeof catalogProduct>>,
+export function useStorefrontProduct<
+  TData = Awaited<ReturnType<typeof storefrontProduct>>,
   TError = ErrorType<unknown>,
 >(
-  categoryId: CatalogCategoryId,
-  productId: string,
+  slug: string,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof catalogProduct>>,
+      Awaited<ReturnType<typeof storefrontProduct>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getCatalogProductQueryOptions(
-    categoryId,
-    productId,
-    options,
-  );
+  const queryOptions = getStorefrontProductQueryOptions(slug, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

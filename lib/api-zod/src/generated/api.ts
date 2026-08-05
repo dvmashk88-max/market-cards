@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,106 +15,129 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary List live FazerCards catalog groups
+ * @summary List the four public storefront categories
  */
-export const CatalogCategoriesResponse = zod.object({
+export const StorefrontCategoriesResponse = zod.object({
   categories: zod.array(
     zod.object({
-      id: zod.enum(["gift-cards", "game-keys", "top-ups", "manual-services"]),
+      id: zod.enum(["apple", "steam", "games", "telegram"]),
       name: zod.string(),
-      description: zod.string(),
+      emoji: zod.string(),
+      order: zod.number(),
       productCount: zod.number(),
     }),
   ),
 });
 
 /**
- * @summary List live products in a catalog group
+ * @summary List the nine curated storefront products with live offers
  */
-export const CatalogProductsQueryParams = zod.object({
-  category: zod.enum(["gift-cards", "game-keys", "top-ups", "manual-services"]),
-});
 
-export const CatalogProductsResponse = zod.object({
+export const StorefrontProductsResponse = zod.object({
   products: zod.array(
     zod.object({
-      id: zod.string(),
-      categoryId: zod.enum([
-        "gift-cards",
-        "game-keys",
-        "top-ups",
-        "manual-services",
-      ]),
-      name: zod.string(),
+      slug: zod.string(),
+      categoryId: zod.enum(["apple", "steam", "games", "telegram"]),
+      title: zod.string(),
       description: zod.string(),
-      imageUrl: zod.string().nullable(),
+      flag: zod.string(),
       region: zod.string().nullable(),
-      platform: zod.string().nullable(),
       available: zod.boolean(),
+      offers: zod.array(
+        zod.object({
+          id: zod.string(),
+          label: zod.string(),
+          nominal: zod.object({
+            amount: zod.string(),
+            currency: zod.string(),
+          }),
+          priceRub: zod.number().min(1),
+          available: zod.boolean(),
+          stock: zod.number().nullable(),
+        }),
+      ),
+      steamForm: zod.union([
+        zod.object({
+          currencies: zod.array(zod.enum(["USD", "RUB", "UAH", "KZT"])),
+          amountRules: zod.array(
+            zod.object({
+              currency: zod.enum(["USD", "RUB", "UAH", "KZT"]),
+              maxFractionDigits: zod.number(),
+            }),
+          ),
+          minimumAmount: zod.null(),
+          maximumAmount: zod.null(),
+        }),
+        zod.null(),
+      ]),
     }),
   ),
 });
 
 /**
- * @summary Get one product and its live offers
+ * @summary Validate a Steam login and calculate a read-only top-up quote
  */
-export const CatalogProductParams = zod.object({
-  categoryId: zod.enum([
-    "gift-cards",
-    "game-keys",
-    "top-ups",
-    "manual-services",
-  ]),
-  productId: zod.coerce.string(),
+export const storefrontSteamQuoteBodySteamLoginMax = 100;
+
+export const storefrontSteamQuoteBodyAmountMax = 32;
+
+export const StorefrontSteamQuoteBody = zod.object({
+  steamLogin: zod.string().min(1).max(storefrontSteamQuoteBodySteamLoginMax),
+  currency: zod.enum(["USD", "RUB", "UAH", "KZT"]),
+  amount: zod.string().min(1).max(storefrontSteamQuoteBodyAmountMax),
 });
 
-export const CatalogProductResponse = zod.object({
-  product: zod
-    .object({
-      id: zod.string(),
-      categoryId: zod.enum([
-        "gift-cards",
-        "game-keys",
-        "top-ups",
-        "manual-services",
-      ]),
-      name: zod.string(),
-      description: zod.string(),
-      imageUrl: zod.string().nullable(),
-      region: zod.string().nullable(),
-      platform: zod.string().nullable(),
-      available: zod.boolean(),
-    })
-    .and(
+export const StorefrontSteamQuoteResponse = zod.object({
+  quote: zod.object({
+    canRefill: zod.literal(true),
+    currency: zod.enum(["USD", "RUB", "UAH", "KZT"]),
+    amount: zod.string(),
+    priceRub: zod.number().min(1),
+  }),
+});
+
+/**
+ * @summary Get one curated storefront product
+ */
+export const StorefrontProductParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const StorefrontProductResponse = zod.object({
+  product: zod.object({
+    slug: zod.string(),
+    categoryId: zod.enum(["apple", "steam", "games", "telegram"]),
+    title: zod.string(),
+    description: zod.string(),
+    flag: zod.string(),
+    region: zod.string().nullable(),
+    available: zod.boolean(),
+    offers: zod.array(
       zod.object({
-        offers: zod.array(
-          zod.object({
-            id: zod.string(),
-            name: zod.string(),
-            price: zod.object({
-              amount: zod.string(),
-              currency: zod.enum(["USD"]),
-            }),
-            nominal: zod.object({
-              label: zod.string(),
-              amount: zod.string().nullable(),
-              currency: zod.string().nullable(),
-            }),
-            stock: zod.number().nullable(),
-            available: zod.boolean(),
-            minQuantity: zod.number(),
-            maxQuantity: zod.number().nullable(),
-            deliveryMinutes: zod.number().nullable(),
-          }),
-        ),
-        requiredFields: zod.array(
-          zod.object({
-            key: zod.string(),
-            label: zod.string(),
-            type: zod.string(),
-            options: zod.array(zod.string()).optional(),
-          }),
-        ),
+        id: zod.string(),
+        label: zod.string(),
+        nominal: zod.object({
+          amount: zod.string(),
+          currency: zod.string(),
+        }),
+        priceRub: zod.number().min(1),
+        available: zod.boolean(),
+        stock: zod.number().nullable(),
       }),
     ),
+    steamForm: zod.union([
+      zod.object({
+        currencies: zod.array(zod.enum(["USD", "RUB", "UAH", "KZT"])),
+        amountRules: zod.array(
+          zod.object({
+            currency: zod.enum(["USD", "RUB", "UAH", "KZT"]),
+            maxFractionDigits: zod.number(),
+          }),
+        ),
+        minimumAmount: zod.null(),
+        maximumAmount: zod.null(),
+      }),
+      zod.null(),
+    ]),
+  }),
 });

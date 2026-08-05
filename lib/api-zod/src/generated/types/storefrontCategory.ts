@@ -5,11 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CatalogCategoryId } from './catalogCategoryId';
+import type { StorefrontCategoryId } from "./storefrontCategoryId";
 
-export interface CatalogCategory {
-  id: CatalogCategoryId;
+export interface StorefrontCategory {
+  id: StorefrontCategoryId;
   name: string;
-  description: string;
+  emoji: string;
+  order: number;
   productCount: number;
 }

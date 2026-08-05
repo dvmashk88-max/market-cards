@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CatalogCategory } from './catalogCategory';
+import type { StorefrontProduct } from "./storefrontProduct";
 
-export type CatalogCategories200 = {
-  categories: CatalogCategory[];
+export type StorefrontProduct200 = {
+  product: StorefrontProduct;
 };

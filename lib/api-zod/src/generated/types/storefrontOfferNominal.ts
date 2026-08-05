@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CatalogCategoryId } from './catalogCategoryId';
 
-export type CatalogProductsParams = {
-category: CatalogCategoryId;
+export type StorefrontOfferNominal = {
+  amount: string;
+  currency: string;
 };
