@@ -351,7 +351,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
             </div>
           </div>
 
-          <div className="min-w-0 space-y-4 rounded-2xl border border-white/8 bg-black/20 p-4 sm:p-5">
+          <div className="min-w-0 rounded-2xl border border-white/8 bg-black/20 p-4 sm:p-5">
             <div>
               <p className="mb-2 text-[10px] uppercase tracking-wider text-white/35">Email для доставки</p>
               <input
@@ -359,21 +359,21 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
                 value={email}
                 onChange={(e) => onEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-purple-400/60"
+                className="w-full rounded-xl border border-white/15 bg-white/[0.055] px-3 py-2.5 text-sm text-white outline-none transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-white/40 hover:border-white/25 focus:border-violet-400/80 focus:bg-white/[0.065] focus:ring-2 focus:ring-cyan-400/20 focus:shadow-[0_0_16px_rgba(124,58,237,0.16)]"
               />
             </div>
 
-            <div className="flex gap-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-relaxed text-amber-50/80">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div className="mt-4 flex gap-3 rounded-xl border border-amber-400/45 bg-amber-400/[0.13] p-3 text-xs leading-relaxed text-amber-50/85">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-200 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]" />
               <div>
-                <p className="font-bold text-amber-100">После оплаты</p>
-                <p className="mt-2">Код будет отправлен на указанный e-mail. Обычно письмо приходит в течение 3–5 минут.</p>
-                <p className="mt-2">Если письма нет — проверьте папки: „Входящие“, „Спам“ и „Рассылки“.</p>
-                <p className="mt-2">После возвращения в магазин появится подтверждение выполнения заказа.</p>
+                <p className="font-extrabold text-amber-50">После оплаты</p>
+                <p className="mt-2">Код будет отправлен на указанный e-mail. Обычно письмо приходит в течение <strong className="font-semibold text-amber-50">3–5 минут</strong>.</p>
+                <p className="mt-2">Если письма нет — проверьте папки: „<strong className="font-semibold text-amber-50">Входящие</strong>“, „<strong className="font-semibold text-amber-50">Спам</strong>“ и „<strong className="font-semibold text-amber-50">Рассылки</strong>“.</p>
+                <p className="mt-2 font-medium text-amber-100/90">После возвращения в магазин появится подтверждение выполнения заказа.</p>
               </div>
             </div>
 
-            <div className="flex items-end justify-between gap-4 border-t border-white/8 pt-4">
+            <div className="mt-2 flex items-end justify-between gap-4 border-t border-white/8 pt-4">
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-white/35">Итого</p>
                 <p className="mt-1 text-2xl font-black text-white">{totalPriceRub === undefined ? "—" : formatPriceRub(totalPriceRub)}</p>
@@ -384,7 +384,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
             <button
               type="button"
               disabled
-              className="w-full rounded-xl border border-purple-400/25 bg-purple-500/15 px-4 py-3 text-sm font-bold text-white/55"
+              className="mt-4 w-full rounded-xl border border-purple-400/25 bg-purple-500/15 px-4 py-3 text-sm font-bold text-white/55"
             >
               Оплата подключается
             </button>
