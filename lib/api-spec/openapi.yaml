@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: catalog
+    description: Read-only normalized storefront catalog
 paths:
   /healthz:
     get:
@@ -24,6 +26,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /catalog/categories:
+    get:
+      operationId: catalogCategories
+      tags: [catalog]
+      summary: List live FazerCards catalog groups
+      responses:
+        "200":
+          description: Catalog groups
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [categories]
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CatalogCategory"
+  /catalog/products:
+    get:
+      operationId: catalogProducts
+      tags: [catalog]
+      summary: List live products in a catalog group
+      parameters:
+        - in: query
+          name: category
+          required: true
+          schema:
+            $ref: "#/components/schemas/CatalogCategoryId"
+      responses:
+        "200":
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products]
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CatalogProduct"
+  /catalog/products/{categoryId}/{productId}:
+    get:
+      operationId: catalogProduct
+      tags: [catalog]
+      summary: Get one product and its live offers
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema:
+            $ref: "#/components/schemas/CatalogCategoryId"
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product and offers with final server-calculated prices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product]
+                properties:
+                  product:
+                    $ref: "#/components/schemas/CatalogProductDetail"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +104,124 @@ components:
           type: string
       required:
         - status
-
+    CatalogCategoryId:
+      type: string
+      enum: [gift-cards, game-keys, top-ups, manual-services]
+    CatalogCategory:
+      type: object
+      required: [id, name, description, productCount]
+      properties:
+        id:
+          $ref: "#/components/schemas/CatalogCategoryId"
+        name:
+          type: string
+        description:
+          type: string
+        productCount:
+          type: integer
+    CatalogProduct:
+      type: object
+      required:
+        [
+          id,
+          categoryId,
+          name,
+          description,
+          imageUrl,
+          region,
+          platform,
+          available,
+        ]
+      properties:
+        id:
+          type: string
+        categoryId:
+          $ref: "#/components/schemas/CatalogCategoryId"
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: [string, "null"]
+        region:
+          type: [string, "null"]
+        platform:
+          type: [string, "null"]
+        available:
+          type: boolean
+    CatalogOffer:
+      type: object
+      required:
+        [
+          id,
+          name,
+          price,
+          nominal,
+          stock,
+          available,
+          minQuantity,
+          maxQuantity,
+          deliveryMinutes,
+        ]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: object
+          required: [amount, currency]
+          properties:
+            amount:
+              type: string
+            currency:
+              type: string
+              enum: [USD]
+        nominal:
+          type: object
+          required: [label, amount, currency]
+          properties:
+            label:
+              type: string
+            amount:
+              type: [string, "null"]
+            currency:
+              type: [string, "null"]
+        stock:
+          type: [integer, "null"]
+        available:
+          type: boolean
+        minQuantity:
+          type: integer
+        maxQuantity:
+          type: [integer, "null"]
+        deliveryMinutes:
+          type: [integer, "null"]
+    CatalogField:
+      type: object
+      required: [key, label, type]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+    CatalogProductDetail:
+      allOf:
+        - $ref: "#/components/schemas/CatalogProduct"
+        - type: object
+          required: [offers, requiredFields]
+          properties:
+            offers:
+              type: array
+              items:
+                $ref: "#/components/schemas/CatalogOffer"
+            requiredFields:
+              type: array
+              items:
+                $ref: "#/components/schemas/CatalogField"
