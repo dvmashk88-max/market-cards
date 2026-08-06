@@ -259,6 +259,40 @@ export async function getStorefrontProducts(): Promise<StorefrontProduct[]> {
   );
 }
 
+export async function resolveGiftCardCheckoutOffer(
+  productSlug: string,
+  offerId: string,
+) {
+  const product = findCuratedProduct(productSlug);
+  if (!product || product.source.type !== "gift-card") return null;
+  const query = new URLSearchParams({
+    category_id: product.source.categoryId,
+    include_ui: "1",
+  });
+  const detail = await fetchFazerCards(
+    `/api/v2/giftcards/cards?${query}`,
+    giftCardSchema,
+  );
+  const offer = detail.offers.find((item) => item.card_id === offerId);
+  if (!offer) return null;
+  const markup = parseMarkupPercent(process.env.CATALOG_MARKUP_PERCENT);
+  const usdToRubRate = parseUsdToRubRate(process.env.USD_TO_RUB_RATE);
+  return {
+    productSlug: product.slug,
+    productName: product.title,
+    nominalLabel: offer.name,
+    supplierProductId: product.source.categoryId,
+    supplierOfferId: offer.card_id,
+    purchasePriceUsd: offer.price_usd,
+    customerPriceRub: calculateCustomerPriceRub(
+      offer.price_usd,
+      markup,
+      usdToRubRate,
+    ),
+    available: offer.stock > 0,
+  };
+}
+
 export function clearStorefrontCache(): void {
   cache.clear();
 }

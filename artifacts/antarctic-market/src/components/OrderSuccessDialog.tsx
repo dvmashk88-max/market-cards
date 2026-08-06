@@ -9,15 +9,6 @@ export type OrderSuccessDialogProps = {
   onClose: () => void;
 };
 
-/*
- * Future order lifecycle:
- * - open only after the backend confirms successful payment and fulfilment;
- * - associate the state with one unique order and replace it when a new order starts;
- * - expire it after roughly 5–10 minutes;
- * - once closed or after the customer leaves, never show that order again.
- * Persistence, order tokens and production simulation intentionally belong to the
- * future backend order flow and are not implemented in this UI-only component.
- */
 export default function OrderSuccessDialog({
   open,
   product,
@@ -68,7 +59,7 @@ export default function OrderSuccessDialog({
             <dd className="text-right font-semibold text-white">{nominal}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-white/45">Email</dt>
+            <dt className="text-white/45">Код отправлен на</dt>
             <dd className="break-all text-right font-semibold text-white">
               {email}
             </dd>
@@ -76,8 +67,8 @@ export default function OrderSuccessDialog({
         </dl>
 
         <p className="mt-5 text-sm leading-relaxed text-white/65">
-          Код отправлен на указанный e-mail. Обычно письмо приходит в течение
-          3–5 минут.
+          Обычно письмо приходит в течение 3–5 минут. Проверьте папки «Спам» и
+          «Рассылки».
         </p>
         <button
           className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-bold text-white"

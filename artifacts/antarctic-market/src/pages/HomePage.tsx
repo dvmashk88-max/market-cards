@@ -23,6 +23,7 @@ import {
   sortedAvailableOffers,
   visibleOffers,
 } from "@/lib/nominals";
+import { createOrder } from "@/lib/orders";
 
 /* ═══════════════════════════════════════════════════════════════════ Data */
 
@@ -260,7 +261,7 @@ function SteamQuoteForm({ product, onQuoteChange }: { product: Product; onQuoteC
 }
 
 /* — Order Panel — */
-function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggleNominals, email, onEmail }: {
+function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggleNominals, email, onEmail, checkoutPending, checkoutError, onCheckout }: {
   prod: Product | null;
   selectedOfferId: string | null;
   onOffer: (id: string) => void;
@@ -268,6 +269,9 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
   onToggleNominals: () => void;
   email: string;
   onEmail: (s: string) => void;
+  checkoutPending: boolean;
+  checkoutError: string;
+  onCheckout: () => void;
 }) {
   const [steamQuote, setSteamQuote] = useState<SteamQuote | null>(null);
   const selectedOffer = prod?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
@@ -275,6 +279,9 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
   const shownOffers = visibleOffers(prod?.offers ?? [], nominalsExpanded);
   const totalPriceRub = prod?.slug === "steam-top-up" ? steamQuote?.priceRub : selectedOffer?.priceRub;
   const ProductIcon = prod?.Icon;
+  const checkoutSupported = prod?.cat === "apple";
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const checkoutReady = checkoutSupported && Boolean(selectedOffer?.available) && emailValid;
 
   useEffect(() => {
     setSteamQuote(null);
@@ -383,11 +390,20 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
 
             <button
               type="button"
-              disabled
-              className="mt-4 w-full rounded-xl border border-purple-400/25 bg-purple-500/15 px-4 py-3 text-sm font-bold text-white/55"
+              disabled={!checkoutReady || checkoutPending}
+              onClick={onCheckout}
+              className="mt-4 w-full rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-600/80 to-cyan-600/70 px-4 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-purple-400/20 disabled:bg-none disabled:bg-purple-500/15 disabled:text-white/45"
             >
-              Оплата подключается
+              {checkoutPending
+                ? "Создаём платёж…"
+                : checkoutSupported
+                  ? "Перейти к оплате"
+                  : "Оплата скоро будет доступна"}
             </button>
+            {checkoutSupported && !emailValid && email.length > 0 && (
+              <p className="mt-2 text-xs text-rose-300">Проверьте email для доставки</p>
+            )}
+            {checkoutError && <p className="mt-2 text-xs leading-relaxed text-rose-300">{checkoutError}</p>}
           </div>
         </div>
       </div>
@@ -407,6 +423,8 @@ export default function HomePage() {
     expanded: false,
   });
   const [email, setEmail]       = useState("");
+  const [checkoutPending, setCheckoutPending] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const [successPreviewOpen, setSuccessPreviewOpen] = useState(() =>
     import.meta.env.DEV
       && typeof window !== "undefined"
@@ -446,6 +464,25 @@ export default function HomePage() {
     setSelId(slug);
     setSelectedOfferId(product ? sortedAvailableOffers(product.offers)[0]?.id ?? null : null);
     dispatchNominalView({ type: "select_product", productSlug: slug });
+  };
+
+  const checkout = async () => {
+    if (!selected || !selectedOfferId || checkoutPending) return;
+    setCheckoutPending(true);
+    setCheckoutError("");
+    try {
+      const order = await createOrder({
+        productSlug: selected.slug,
+        variantId: selectedOfferId,
+        email: email.trim(),
+        checkoutKey: crypto.randomUUID(),
+      });
+      sessionStorage.setItem(`market-cards:order:${order.publicId}`, order.accessToken);
+      window.location.assign(order.paymentUrl);
+    } catch (cause) {
+      setCheckoutError(cause instanceof Error ? cause.message : "Не удалось создать платёж");
+      setCheckoutPending(false);
+    }
   };
 
   return (
@@ -657,7 +694,18 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <OrderPanel prod={selected} selectedOfferId={selectedOfferId} onOffer={setSelectedOfferId} nominalsExpanded={nominalView.expanded} onToggleNominals={() => dispatchNominalView({ type: "toggle" })} email={email} onEmail={setEmail} />
+              <OrderPanel
+                prod={selected}
+                selectedOfferId={selectedOfferId}
+                onOffer={setSelectedOfferId}
+                nominalsExpanded={nominalView.expanded}
+                onToggleNominals={() => dispatchNominalView({ type: "toggle" })}
+                email={email}
+                onEmail={setEmail}
+                checkoutPending={checkoutPending}
+                checkoutError={checkoutError}
+                onCheckout={() => void checkout()}
+              />
             </div>
           </div>
         </section>

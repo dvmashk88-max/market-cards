@@ -11,6 +11,8 @@ tags:
     description: Health operations
   - name: storefront
     description: Curated public storefront
+  - name: orders
+    description: Protected checkout and order status
 paths:
   /healthz:
     get:
@@ -104,7 +106,74 @@ paths:
                 properties:
                   product:
                     $ref: "#/components/schemas/StorefrontProduct"
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an idempotent Gift Card checkout using a server-verified price
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderInput"
+      responses:
+        "201":
+          description: Payment page created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrderResult"
+  /orders/{publicId}:
+    get:
+      operationId: getOrderStatus
+      tags: [orders]
+      summary: Independently verify payment and return a protected order status
+      security:
+        - orderToken: []
+      parameters:
+        - $ref: "#/components/parameters/PublicOrderId"
+      responses:
+        "200":
+          description: Safe public order state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicOrder"
+  /orders/{publicId}/notification-viewed:
+    post:
+      operationId: markOrderNotificationViewed
+      tags: [orders]
+      security:
+        - orderToken: []
+      parameters:
+        - $ref: "#/components/parameters/PublicOrderId"
+      responses:
+        "204":
+          description: Notification acknowledged
+  /orders/{publicId}/email/retry:
+    post:
+      operationId: retryOrderEmail
+      tags: [orders]
+      security:
+        - orderToken: []
+      parameters:
+        - $ref: "#/components/parameters/PublicOrderId"
+      responses:
+        "202":
+          description: Existing delivery result sent again without another purchase
 components:
+  securitySchemes:
+    orderToken:
+      type: http
+      scheme: bearer
+  parameters:
+    PublicOrderId:
+      in: path
+      name: publicId
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -112,6 +181,53 @@ components:
       properties:
         status:
           type: string
+    OrderStatus:
+      type: string
+      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, failed, cancelled, refunded]
+    CreateOrderInput:
+      type: object
+      additionalProperties: false
+      required: [productSlug, variantId, email, checkoutKey]
+      properties:
+        productSlug:
+          type: string
+        variantId:
+          type: string
+        email:
+          type: string
+          format: email
+        checkoutKey:
+          type: string
+          format: uuid
+    CreateOrderResult:
+      type: object
+      required: [publicId, accessToken, paymentUrl]
+      properties:
+        publicId:
+          type: string
+        accessToken:
+          type: string
+        paymentUrl:
+          type: string
+          format: uri
+    PublicOrder:
+      type: object
+      required: [publicId, status, productName, nominalLabel, emailMasked, notificationEligible, errorMessage]
+      properties:
+        publicId:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        productName:
+          type: string
+        nominalLabel:
+          type: string
+        emailMasked:
+          type: string
+        notificationEligible:
+          type: boolean
+        errorMessage:
+          type: [string, "null"]
     StorefrontCategoryId:
       type: string
       enum: [apple, steam, games, telegram]
