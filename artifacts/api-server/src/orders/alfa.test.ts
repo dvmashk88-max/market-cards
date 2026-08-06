@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { z } from "zod";
 import {
   createAlfaClient,
   getAlfaTerminalOrderStatus,
   isAlfaPaymentSuccessful,
 } from "./alfa";
+import { classifyCheckoutError } from "./checkoutError";
 
 process.env.ALFA_API_BASE = "https://alfa.example/payment/rest";
 process.env.ALFA_USERNAME = "test-user";
@@ -51,4 +53,53 @@ test("Alfa terminal states map to cancelled, refunded and failed", () => {
   assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 0, OrderStatus: 4 }), "refunded");
   assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 0, OrderStatus: 6 }), "failed");
   assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 7, OrderStatus: 6 }), null);
+});
+
+test("Alfa transport errors are wrapped without exposing their details", async () => {
+  const tlsCause = Object.assign(new Error("certificate details"), {
+    code: "SELF_SIGNED_CERT_IN_CHAIN",
+  });
+  const fetchMock: typeof fetch = async () => {
+    throw new TypeError("fetch failed", { cause: tlsCause });
+  };
+
+  await assert.rejects(
+    createAlfaClient(fetchMock).status("missing-order"),
+    (error: unknown) => {
+      assert.equal(error instanceof Error && error.message, "ALFA_NETWORK_ERROR");
+      assert.deepEqual(classifyCheckoutError(error), {
+        category: "tls",
+        code: "SELF_SIGNED_CERT_IN_CHAIN",
+      });
+      return true;
+    },
+  );
+});
+
+test("Alfa timeout errors are classified separately", async () => {
+  const fetchMock: typeof fetch = async () => {
+    throw new DOMException("request timed out", "TimeoutError");
+  };
+
+  await assert.rejects(
+    createAlfaClient(fetchMock).status("missing-order"),
+    (error: unknown) => {
+      assert.deepEqual(classifyCheckoutError(error), {
+        category: "timeout",
+        code: "ALFA_TIMEOUT",
+      });
+      return true;
+    },
+  );
+});
+
+test("Alfa API and validation errors have distinct safe categories", () => {
+  assert.deepEqual(classifyCheckoutError(new Error("ALFA_HTTP_ERROR")), {
+    category: "alfa_api",
+    code: "ALFA_HTTP_ERROR",
+  });
+  assert.deepEqual(classifyCheckoutError(z.string().email().safeParse("invalid").error), {
+    category: "validation",
+    code: "INVALID_ORDER",
+  });
 });

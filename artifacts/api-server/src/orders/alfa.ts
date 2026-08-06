@@ -33,17 +33,35 @@ async function postForm<T>(
   fetchImpl: typeof fetch,
 ): Promise<T> {
   const { base } = config();
-  const response = await fetchImpl(`${base}/${path}`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params.toString(),
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(`${base}/${path}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? error.code : undefined;
+    const causeCode = error instanceof Error
+      && error.cause instanceof Error
+      && "code" in error.cause
+      ? error.cause.code
+      : undefined;
+    const timeout = error instanceof Error && error.name === "TimeoutError"
+      || code === "ETIMEDOUT"
+      || causeCode === "ETIMEDOUT";
+    throw new Error(timeout ? "ALFA_TIMEOUT" : "ALFA_NETWORK_ERROR", { cause: error });
+  }
   if (!response.ok) throw new Error("ALFA_HTTP_ERROR");
-  return schema.parse(await response.json());
+  try {
+    return schema.parse(await response.json());
+  } catch (error) {
+    throw new Error("ALFA_INVALID_RESPONSE", { cause: error });
+  }
 }
 
 export function createAlfaClient(fetchImpl: typeof fetch = fetch) {

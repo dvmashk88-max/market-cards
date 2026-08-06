@@ -6,6 +6,8 @@ import { orderRepository } from "../orders/repository";
 import { createOrderService } from "../orders/service";
 import { createSupplierClient } from "../orders/supplier";
 import { createRateLimiter } from "../orders/rateLimit";
+import { classifyCheckoutError } from "../orders/checkoutError";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 const service = createOrderService({
@@ -48,6 +50,11 @@ router.post("/orders", createLimit, async (req, res) => {
     res.status(201).json(await service.create(req.body));
   } catch (error) {
     const result = safeError(error);
+    const failure = classifyCheckoutError(error);
+    logger.warn(
+      { event: "checkout_failed", category: failure.category, code: failure.code },
+      "Checkout request failed",
+    );
     res.status(result.status).json(result.body);
   }
 });

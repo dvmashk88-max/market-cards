@@ -15,6 +15,7 @@ out-tsc
 .env.*
 !.env.example
 *.pem
+!artifacts/api-server/certs/russian-trusted-root-ca.pem
 *.key
 credentials*
 secrets*
