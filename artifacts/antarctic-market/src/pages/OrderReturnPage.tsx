@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import OrderSuccessDialog from "@/components/OrderSuccessDialog";
+import OrderCompletionCard from "@/components/OrderCompletionCard";
 import Header from "@/components/Header";
 import {
   fetchOrder,
   markNotificationViewed,
-  notificationAutoHideMs,
   type PublicOrderStatus,
 } from "@/lib/orders";
 
@@ -46,7 +45,7 @@ export default function OrderReturnPage() {
         failedAttempts = 0;
         setError("");
         setOrder(next);
-        if (next.notificationEligible) {
+        if (next.status === "email_sent" && next.notificationEligible) {
           setDialogOpen(true);
           void markNotificationViewed(publicId, token);
         }
@@ -64,12 +63,6 @@ export default function OrderReturnPage() {
     return () => { active = false; if (timer) window.clearTimeout(timer); };
   }, [publicId, token]);
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    const timer = window.setTimeout(() => setDialogOpen(false), notificationAutoHideMs);
-    return () => window.clearTimeout(timer);
-  }, [dialogOpen]);
-
   return (
     <div className="min-h-screen bg-[#050818] text-white">
       <Header />
@@ -83,7 +76,7 @@ export default function OrderReturnPage() {
         </section>
       </main>
       {order && (
-        <OrderSuccessDialog
+        <OrderCompletionCard
           open={dialogOpen}
           product={order.productName}
           nominal={order.nominalLabel}

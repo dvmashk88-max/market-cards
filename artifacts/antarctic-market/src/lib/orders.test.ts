@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createOrder, notificationAutoHideMs } from "./orders";
 
-test("success notification automatically hides after five minutes", () => {
-  assert.equal(notificationAutoHideMs, 300_000);
-  assert.ok(notificationAutoHideMs < 10 * 60_000);
+test("completed order card automatically hides after ten minutes", () => {
+  assert.equal(notificationAutoHideMs, 600_000);
 });
 
 test("checkout sends identifiers and email but never a frontend price", async () => {

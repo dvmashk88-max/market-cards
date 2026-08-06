@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import OrderSuccessDialog from "@/components/OrderSuccessDialog";
+import OrderCompletionCard from "@/components/OrderCompletionCard";
 import {
   fetchStorefrontCategories,
   fetchStorefrontProducts,
@@ -852,7 +852,7 @@ export default function HomePage() {
 
       </main>
 
-      <OrderSuccessDialog
+      <OrderCompletionCard
         open={successPreviewOpen}
         product={selected?.title ?? "Цифровой товар"}
         nominal={selected?.offers.find((offer) => offer.id === selectedOfferId)?.label ?? "Выбранный номинал"}

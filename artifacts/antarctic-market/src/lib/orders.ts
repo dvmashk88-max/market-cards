@@ -46,4 +46,4 @@ export function markNotificationViewed(publicId: string, token: string) {
   });
 }
 
-export const notificationAutoHideMs = 5 * 60_000;
+export const notificationAutoHideMs = 10 * 60_000;
