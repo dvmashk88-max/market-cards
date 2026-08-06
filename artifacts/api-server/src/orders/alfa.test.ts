@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createAlfaClient, isAlfaPaymentSuccessful } from "./alfa";
+import {
+  createAlfaClient,
+  getAlfaTerminalOrderStatus,
+  isAlfaPaymentSuccessful,
+} from "./alfa";
 
 process.env.ALFA_API_BASE = "https://alfa.example/payment/rest";
 process.env.ALFA_USERNAME = "test-user";
@@ -40,4 +44,11 @@ test("Alfa status is successful only for ErrorCode zero and OrderStatus two", as
   const status = await createAlfaClient(fetchMock).status("bank-id");
   assert.equal(isAlfaPaymentSuccessful(status), true);
   assert.equal(isAlfaPaymentSuccessful({ ...status, OrderStatus: 0 }), false);
+});
+
+test("Alfa terminal states map to cancelled, refunded and failed", () => {
+  assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 0, OrderStatus: 3 }), "cancelled");
+  assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 0, OrderStatus: 4 }), "refunded");
+  assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 0, OrderStatus: 6 }), "failed");
+  assert.equal(getAlfaTerminalOrderStatus({ ErrorCode: 7, OrderStatus: 6 }), null);
 });

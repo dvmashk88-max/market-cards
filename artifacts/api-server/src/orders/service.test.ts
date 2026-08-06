@@ -40,6 +40,14 @@ class MemoryRepository implements OrderRepository {
   async fail(id: string, errorCode: string, errorMessageSafe: string) {
     this.update(id, { status: "failed", errorCode, errorMessageSafe });
   }
+  async setTerminalStatus(
+    id: string,
+    status: "failed" | "cancelled" | "refunded",
+    errorCode: string,
+    errorMessageSafe: string,
+  ) {
+    return this.update(id, { status, errorCode, errorMessageSafe });
+  }
   async confirmPayment(id: string) {
     return this.update(id, { status: "payment_confirmed", paymentConfirmedAt: new Date() });
   }
@@ -169,10 +177,32 @@ test("does not purchase when payment is unsuccessful", async () => {
 test("terminal unsuccessful payment fails safely without supplier purchase", async () => {
   const h = harness();
   const created = await h.service.create(input);
-  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 6 });
+  h.setAlfaStatus({
+    ErrorCode: 0,
+    OrderStatus: 6,
+    OrderNumber: created.publicId,
+    Amount: 3000,
+    currency: "810",
+  });
   const order = await h.service.status(created.publicId, created.accessToken);
   assert.equal(order.status, "failed");
   assert.equal(h.counts().supplierCalls, 0);
+});
+
+test("cancelled and refunded Alfa statuses use distinct terminal states", async () => {
+  for (const [orderStatus, expected] of [[3, "cancelled"], [4, "refunded"]] as const) {
+    const h = harness();
+    const created = await h.service.create({ ...input, checkoutKey: crypto.randomUUID() });
+    h.setAlfaStatus({
+      ErrorCode: 0,
+      OrderStatus: orderStatus,
+      OrderNumber: created.publicId,
+      Amount: 3000,
+      currency: "810",
+    });
+    assert.equal((await h.service.status(created.publicId, created.accessToken)).status, expected);
+    assert.equal(h.counts().supplierCalls, 0);
+  }
 });
 
 test("successful payment purchases once and repeat status is idempotent", async () => {

@@ -91,6 +91,12 @@ export function isAlfaPaymentSuccessful(status: AlfaStatus): boolean {
   return String(status.ErrorCode ?? "0") === "0" && status.OrderStatus === 2;
 }
 
-export function isAlfaPaymentTerminalFailure(status: AlfaStatus): boolean {
-  return status.OrderStatus === 3 || status.OrderStatus === 6;
+export function getAlfaTerminalOrderStatus(
+  status: AlfaStatus,
+): "failed" | "cancelled" | "refunded" | null {
+  if (String(status.ErrorCode ?? "0") !== "0") return null;
+  if (status.OrderStatus === 3) return "cancelled";
+  if (status.OrderStatus === 4) return "refunded";
+  if (status.OrderStatus === 6) return "failed";
+  return null;
 }

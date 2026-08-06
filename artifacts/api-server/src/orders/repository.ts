@@ -78,6 +78,15 @@ export const orderRepository: OrderRepository = {
       [id, code, message],
     );
   },
+  async setTerminalStatus(id, status, code, message) {
+    const result = await one(
+      `UPDATE orders SET status=$2::order_status, error_code=$3,
+       error_message_safe=$4, updated_at=now() WHERE id=$1 RETURNING *`,
+      [id, status, code, message],
+    );
+    if (!result) throw new Error("ORDER_NOT_FOUND");
+    return result;
+  },
   async confirmPayment(id) {
     const result = await one(
       `UPDATE orders SET status='payment_confirmed', payment_confirmed_at=COALESCE(payment_confirmed_at,now()), updated_at=now()

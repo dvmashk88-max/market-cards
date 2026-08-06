@@ -65,6 +65,12 @@ export interface OrderRepository {
     paymentUrl: string,
   ): Promise<OrderRecord>;
   fail(id: string, code: string, message: string): Promise<void>;
+  setTerminalStatus(
+    id: string,
+    status: "failed" | "cancelled" | "refunded",
+    code: string,
+    message: string,
+  ): Promise<OrderRecord>;
   confirmPayment(id: string): Promise<OrderRecord>;
   claimSupplierPurchase(id: string): Promise<OrderRecord | null>;
   saveSupplierProcessing(id: string, supplierOrderId: string): Promise<OrderRecord>;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { resolveGiftCardCheckoutOffer } from "../integrations/fazercards/storefront";
-import { isAlfaPaymentSuccessful, isAlfaPaymentTerminalFailure } from "./alfa";
+import { getAlfaTerminalOrderStatus, isAlfaPaymentSuccessful } from "./alfa";
 import {
   createPublicId,
   decryptDeliveryCode,
@@ -195,20 +195,31 @@ export function createOrderService(deps: {
 
     async status(publicId: string, token: string) {
       let order = authorize(await deps.repository.findByPublicId(publicId), token);
-      if (order.status === "payment_pending" && order.alfaOrderId) {
+      if (
+        order.alfaOrderId
+        && !["created", "failed", "cancelled", "refunded"].includes(order.status)
+      ) {
         const status = await deps.alfa.status(order.alfaOrderId);
-        if (isAlfaPaymentSuccessful(status)) {
-          if (
-            status.OrderNumber !== order.publicId
-            || Number(status.Amount) !== order.customerPriceRub * 100
-            || (status.currency && status.currency !== "810")
-          ) {
-            await deps.repository.fail(order.id, "PAYMENT_MISMATCH", "Параметры платежа не совпали");
-          } else {
-            order = await deps.repository.confirmPayment(order.id);
-          }
-        } else if (isAlfaPaymentTerminalFailure(status)) {
-          await deps.repository.fail(order.id, "PAYMENT_FAILED", "Платёж не выполнен");
+        const terminalStatus = getAlfaTerminalOrderStatus(status);
+        const statusHasTrustedOrder = status.OrderNumber === order.publicId
+          && Number(status.Amount) === order.customerPriceRub * 100
+          && (!status.currency || status.currency === "810");
+        if ((isAlfaPaymentSuccessful(status) || terminalStatus) && !statusHasTrustedOrder) {
+          await deps.repository.fail(order.id, "PAYMENT_MISMATCH", "Параметры платежа не совпали");
+        } else if (terminalStatus) {
+          const message = terminalStatus === "cancelled"
+            ? "Платёж отменён"
+            : terminalStatus === "refunded"
+              ? "По платежу выполнен возврат"
+              : "Платёж не выполнен";
+          order = await deps.repository.setTerminalStatus(
+            order.id,
+            terminalStatus,
+            `PAYMENT_${terminalStatus.toUpperCase()}`,
+            message,
+          );
+        } else if (order.status === "payment_pending" && isAlfaPaymentSuccessful(status)) {
+          order = await deps.repository.confirmPayment(order.id);
         }
       }
       order = (await deps.repository.findByPublicId(publicId)) ?? order;
