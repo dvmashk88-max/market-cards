@@ -26,6 +26,10 @@ class MemoryRepository implements OrderRepository {
       supplierPurchasedAt: null,
       emailSentAt: null,
       notificationViewedAt: null,
+      processingOwner: null,
+      processingLeaseUntil: null,
+      nextAttemptAt: now,
+      attemptCount: 0,
       createdAt: now,
       updatedAt: now,
       errorCode: null,
@@ -42,7 +46,7 @@ class MemoryRepository implements OrderRepository {
   }
   async setTerminalStatus(
     id: string,
-    status: "failed" | "cancelled" | "refunded",
+    status: "payment_failed" | "failed" | "cancelled" | "refunded",
     errorCode: string,
     errorMessageSafe: string,
   ) {
@@ -69,6 +73,51 @@ class MemoryRepository implements OrderRepository {
   async markNotificationViewed(id: string) {
     return this.update(id, { notificationViewedAt: new Date() });
   }
+  async claimNextProcessable(workerId: string, leaseMs: number) {
+    const row = this.rows.find((x) => [
+      "payment_pending",
+      "payment_confirmed",
+      "supplier_processing",
+      "fulfilled",
+      "email_failed",
+    ].includes(x.status) && !x.processingOwner);
+    if (!row) return null;
+    return this.update(row.id, {
+      processingOwner: workerId,
+      processingLeaseUntil: new Date(Date.now() + leaseMs),
+    });
+  }
+  async releaseProcessing(id: string, workerId: string, delayMs: number, clearError = true) {
+    const row = this.rows.find((x) => x.id === id && x.processingOwner === workerId);
+    if (!row) return;
+    this.update(id, {
+      processingOwner: null,
+      processingLeaseUntil: null,
+      nextAttemptAt: new Date(Date.now() + delayMs),
+      attemptCount: 0,
+      ...(clearError ? { errorCode: null, errorMessageSafe: null } : {}),
+    });
+  }
+  async recordProcessingError(
+    id: string,
+    workerId: string,
+    status: OrderRecord["status"] | null,
+    errorCode: string,
+    errorMessageSafe: string,
+    delayMs: number,
+  ) {
+    const row = this.rows.find((x) => x.id === id && x.processingOwner === workerId);
+    if (!row) return;
+    this.update(id, {
+      status: status ?? row.status,
+      processingOwner: null,
+      processingLeaseUntil: null,
+      nextAttemptAt: new Date(Date.now() + delayMs),
+      attemptCount: row.attemptCount + 1,
+      errorCode,
+      errorMessageSafe,
+    });
+  }
   update(id: string, patch: Partial<OrderRecord>) {
     const index = this.rows.findIndex((x) => x.id === id);
     if (index < 0) throw new Error("ORDER_NOT_FOUND");
@@ -87,12 +136,15 @@ function harness({ purchasesEnabled = true } = {}) {
     currency?: string;
   } = { ErrorCode: "0", OrderStatus: 0 };
   let supplierCalls = 0;
+  const supplierKeys: string[] = [];
+  let supplierFailureOnce = false;
   let supplierResult: {
     orderId: string;
     status: "processing" | "completed" | "failed";
     code: string | null;
   } = { orderId: "ord-1", status: "completed", code: "REAL-CODE" };
   let emailCalls = 0;
+  let emailFailureOnce = false;
   let registeredAmount = 0;
   let paymentRegistrationCalls = 0;
   const service = createOrderService({
@@ -106,10 +158,26 @@ function harness({ purchasesEnabled = true } = {}) {
       async status() { return alfaStatus; },
     },
     supplier: {
-      async purchaseGiftCard() { supplierCalls += 1; return supplierResult; },
+      async purchaseGiftCard(request) {
+        supplierCalls += 1;
+        supplierKeys.push(request.idempotencyKey);
+        if (supplierFailureOnce) {
+          supplierFailureOnce = false;
+          throw new Error("temporary supplier failure");
+        }
+        return supplierResult;
+      },
       async status() { return supplierResult; },
     },
-    email: { async sendGiftCard() { emailCalls += 1; } },
+    email: {
+      async sendGiftCard() {
+        emailCalls += 1;
+        if (emailFailureOnce) {
+          emailFailureOnce = false;
+          throw new Error("temporary SMTP failure");
+        }
+      },
+    },
     async resolveOffer() {
       return {
         productSlug: "app-store-turkey",
@@ -130,6 +198,9 @@ function harness({ purchasesEnabled = true } = {}) {
     service,
     setAlfaStatus: (value: typeof alfaStatus) => { alfaStatus = value; },
     setSupplierResult: (value: typeof supplierResult) => { supplierResult = value; },
+    failSupplierOnce: () => { supplierFailureOnce = true; },
+    failEmailOnce: () => { emailFailureOnce = true; },
+    supplierKeys: () => supplierKeys,
     counts: () => ({ supplierCalls, emailCalls, registeredAmount, paymentRegistrationCalls }),
   };
 }
@@ -169,7 +240,7 @@ test("repeating the checkout key never registers a second payment", async () => 
 test("does not purchase when payment is unsuccessful", async () => {
   const h = harness();
   const created = await h.service.create(input);
-  await h.service.status(created.publicId, created.accessToken);
+  await h.service.processNext("worker-1");
   assert.equal(h.counts().supplierCalls, 0);
   assert.equal(h.repository.rows[0]?.status, "payment_pending");
 });
@@ -184,8 +255,9 @@ test("terminal unsuccessful payment fails safely without supplier purchase", asy
     Amount: 3000,
     currency: "810",
   });
+  await h.service.processNext("worker-1");
   const order = await h.service.status(created.publicId, created.accessToken);
-  assert.equal(order.status, "failed");
+  assert.equal(order.status, "payment_failed");
   assert.equal(h.counts().supplierCalls, 0);
 });
 
@@ -200,6 +272,7 @@ test("cancelled and refunded Alfa statuses use distinct terminal states", async 
       Amount: 3000,
       currency: "810",
     });
+    await h.service.processNext("worker-1");
     assert.equal((await h.service.status(created.publicId, created.accessToken)).status, expected);
     assert.equal(h.counts().supplierCalls, 0);
   }
@@ -209,6 +282,7 @@ test("successful payment purchases once and repeat status is idempotent", async 
   const h = harness();
   const created = await h.service.create(input);
   h.setAlfaStatus({ ErrorCode: "0", OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  await h.service.processNext("worker-1");
   const first = await h.service.status(created.publicId, created.accessToken);
   const second = await h.service.status(created.publicId, created.accessToken);
   assert.equal(first.status, "email_sent");
@@ -227,8 +301,10 @@ test("processing supplier order is polled without a second purchase", async () =
   h.setSupplierResult({ orderId: "ord-2", status: "processing", code: null });
   const created = await h.service.create(input);
   h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  await h.service.processNext("worker-1");
   assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "supplier_processing");
   h.setSupplierResult({ orderId: "ord-2", status: "completed", code: "REAL-CODE" });
+  await h.service.processNext("worker-1");
   assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
   assert.equal(h.counts().supplierCalls, 1);
 });
@@ -248,8 +324,43 @@ test("email retry never performs another supplier purchase", async () => {
   const h = harness();
   const created = await h.service.create(input);
   h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
-  await h.service.status(created.publicId, created.accessToken);
+  await h.service.processNext("worker-1");
   await h.service.retryEmail(created.publicId, created.accessToken);
+  assert.equal(h.counts().supplierCalls, 1);
+  assert.equal(h.counts().emailCalls, 2);
+});
+
+test("public status is read-only and never triggers payment or supplier processing", async () => {
+  const h = harness();
+  const created = await h.service.create(input);
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "payment_pending");
+  assert.equal(h.counts().supplierCalls, 0);
+  assert.equal(h.repository.rows[0]?.paymentConfirmedAt, null);
+});
+
+test("supplier retry reuses the same idempotency key", async () => {
+  const h = harness();
+  const created = await h.service.create(input);
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  h.failSupplierOnce();
+  await h.service.processNext("worker-1");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "supplier_processing");
+  assert.equal(h.repository.rows[0]?.errorCode, "supplier_failed");
+  await h.service.processNext("worker-1");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
+  assert.equal(new Set(h.supplierKeys()).size, 1);
+});
+
+test("SMTP retry never performs a second supplier purchase", async () => {
+  const h = harness();
+  const created = await h.service.create(input);
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  h.failEmailOnce();
+  await h.service.processNext("worker-1");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_failed");
+  await h.service.processNext("worker-1");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
   assert.equal(h.counts().supplierCalls, 1);
   assert.equal(h.counts().emailCalls, 2);
 });

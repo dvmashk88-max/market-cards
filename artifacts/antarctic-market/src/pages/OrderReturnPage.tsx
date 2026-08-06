@@ -15,6 +15,9 @@ const labels: Record<PublicOrderStatus["status"], string> = {
   supplier_processing: "Получаем товар…",
   fulfilled: "Готовим письмо…",
   email_sent: "Товар отправлен на email",
+  payment_failed: "Не удалось подтвердить платёж",
+  supplier_failed: "Поставщик не выполнил заказ",
+  email_failed: "Повторяем отправку письма…",
   failed: "Не удалось выполнить заказ",
   cancelled: "Платёж отменён",
   refunded: "Платёж возвращён",
@@ -34,20 +37,26 @@ export default function OrderReturnPage() {
     }
     let active = true;
     let timer: number | undefined;
+    let failedAttempts = 0;
     const poll = async () => {
       try {
         const next = await fetchOrder(publicId, token);
         if (!active) return;
+        failedAttempts = 0;
+        setError("");
         setOrder(next);
         if (next.notificationEligible) {
           setDialogOpen(true);
           void markNotificationViewed(publicId, token);
         }
-        if (!["email_sent", "failed", "cancelled", "refunded"].includes(next.status)) {
+        if (!["email_sent", "payment_failed", "supplier_failed", "failed", "cancelled", "refunded"].includes(next.status)) {
           timer = window.setTimeout(poll, 3_000);
         }
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "Не удалось проверить заказ");
+        if (!active) return;
+        failedAttempts += 1;
+        setError("Связь временно прервана. Повторяем проверку заказа…");
+        timer = window.setTimeout(poll, Math.min(15_000, 2_000 * failedAttempts));
       }
     };
     void poll();

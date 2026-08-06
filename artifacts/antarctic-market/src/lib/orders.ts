@@ -1,6 +1,6 @@
 export type PublicOrderStatus = {
   publicId: string;
-  status: "created" | "payment_pending" | "payment_confirmed" | "supplier_processing" | "fulfilled" | "email_sent" | "failed" | "cancelled" | "refunded";
+  status: "created" | "payment_pending" | "payment_confirmed" | "supplier_processing" | "fulfilled" | "email_sent" | "payment_failed" | "supplier_failed" | "email_failed" | "failed" | "cancelled" | "refunded";
   productName: string;
   nominalLabel: string;
   emailMasked: string;
@@ -27,9 +27,14 @@ export function createOrder(input: {
   }).then((response) => json<{ publicId: string; accessToken: string; paymentUrl: string }>(response));
 }
 
-export function fetchOrder(publicId: string, token: string) {
+export function fetchOrder(
+  publicId: string,
+  token: string,
+  signal: AbortSignal = AbortSignal.timeout(12_000),
+) {
   return fetch(`/api/orders/${encodeURIComponent(publicId)}`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal,
   }).then((response) => json<PublicOrderStatus>(response));
 }
 

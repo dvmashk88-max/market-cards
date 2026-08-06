@@ -10,7 +10,7 @@ import { classifyCheckoutError } from "../orders/checkoutError";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
-const service = createOrderService({
+export const orderService = createOrderService({
   repository: orderRepository,
   alfa: createAlfaClient(),
   supplier: createSupplierClient(),
@@ -19,6 +19,7 @@ const service = createOrderService({
       return createEmailSender().sendGiftCard(input);
     },
   },
+  logger,
 });
 
 const createLimit = createRateLimiter(5, 60_000);
@@ -47,7 +48,7 @@ function safeError(error: unknown) {
 
 router.post("/orders", createLimit, async (req, res) => {
   try {
-    res.status(201).json(await service.create(req.body));
+    res.status(201).json(await orderService.create(req.body));
   } catch (error) {
     const result = safeError(error);
     const failure = classifyCheckoutError(error);
@@ -61,7 +62,7 @@ router.post("/orders", createLimit, async (req, res) => {
 
 router.get("/orders/:publicId", statusLimit, async (req, res) => {
   try {
-    res.json(await service.status(routeParam(req.params.publicId), token(req)));
+    res.json(await orderService.status(routeParam(req.params.publicId), token(req)));
   } catch (error) {
     const result = safeError(error);
     res.status(result.status).json(result.body);
@@ -70,7 +71,7 @@ router.get("/orders/:publicId", statusLimit, async (req, res) => {
 
 router.post("/orders/:publicId/notification-viewed", statusLimit, async (req, res) => {
   try {
-    await service.markNotificationViewed(routeParam(req.params.publicId), token(req));
+    await orderService.markNotificationViewed(routeParam(req.params.publicId), token(req));
     res.status(204).end();
   } catch (error) {
     const result = safeError(error);
@@ -80,7 +81,7 @@ router.post("/orders/:publicId/notification-viewed", statusLimit, async (req, re
 
 router.post("/orders/:publicId/email/retry", createLimit, async (req, res) => {
   try {
-    await service.retryEmail(routeParam(req.params.publicId), token(req));
+    await orderService.retryEmail(routeParam(req.params.publicId), token(req));
     res.status(202).json({ ok: true });
   } catch (error) {
     const result = safeError(error);

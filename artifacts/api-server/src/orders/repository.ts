@@ -24,6 +24,10 @@ function map(row: Record<string, unknown>): OrderRecord {
     supplierPurchasedAt: row.supplier_purchased_at as Date | null,
     emailSentAt: row.email_sent_at as Date | null,
     notificationViewedAt: row.notification_viewed_at as Date | null,
+    processingOwner: row.processing_owner ? String(row.processing_owner) : null,
+    processingLeaseUntil: row.processing_lease_until as Date | null,
+    nextAttemptAt: row.next_attempt_at as Date,
+    attemptCount: Number(row.attempt_count),
     createdAt: row.created_at as Date,
     updatedAt: row.updated_at as Date,
     errorCode: row.error_code ? String(row.error_code) : null,
@@ -152,5 +156,50 @@ export const orderRepository: OrderRepository = {
     );
     if (!result) throw new Error("ORDER_NOT_FOUND");
     return result;
+  },
+  async claimNextProcessable(workerId, leaseMs) {
+    const result = await one(
+      `WITH candidate AS (
+         SELECT id FROM orders
+         WHERE status IN ('payment_pending','payment_confirmed','supplier_processing','fulfilled','email_failed')
+           AND next_attempt_at <= now()
+           AND (processing_lease_until IS NULL OR processing_lease_until < now())
+         ORDER BY next_attempt_at, created_at
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1
+       )
+       UPDATE orders AS target
+       SET processing_owner=$1,
+           processing_lease_until=now() + ($2::text || ' milliseconds')::interval,
+           updated_at=now()
+       FROM candidate
+       WHERE target.id=candidate.id
+       RETURNING target.*`,
+      [workerId, leaseMs],
+    );
+    return result;
+  },
+  async releaseProcessing(id, workerId, delayMs, clearError = true) {
+    await pool.query(
+      `UPDATE orders
+       SET processing_owner=NULL, processing_lease_until=NULL,
+           next_attempt_at=now() + ($3::text || ' milliseconds')::interval,
+           attempt_count=0,
+           error_code=CASE WHEN $4::boolean THEN NULL ELSE error_code END,
+           error_message_safe=CASE WHEN $4::boolean THEN NULL ELSE error_message_safe END,
+           updated_at=now()
+       WHERE id=$1 AND processing_owner=$2`,
+      [id, workerId, delayMs, clearError],
+    );
+  },
+  async recordProcessingError(id, workerId, status, code, message, delayMs) {
+    await pool.query(
+      `UPDATE orders
+       SET status=COALESCE($3::order_status,status), processing_owner=NULL, processing_lease_until=NULL,
+           next_attempt_at=now() + ($6::text || ' milliseconds')::interval,
+           attempt_count=attempt_count+1, error_code=$4, error_message_safe=$5, updated_at=now()
+       WHERE id=$1 AND processing_owner=$2`,
+      [id, workerId, status, code, message, delayMs],
+    );
   },
 };

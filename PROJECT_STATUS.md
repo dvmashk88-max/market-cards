@@ -4,6 +4,8 @@
 
 ## Production checkout — 5 августа 2026 года
 
+- Post-payment lifecycle перенесён в автономный backend worker с PostgreSQL lease, `SKIP LOCKED`, retry/backoff и существующим supplier idempotency key. Публичный order status стал read-only и больше не запускает Alfa/FazerCards/SMTP; закрытие браузера не останавливает обработку.
+- Для ошибок добавлены состояния `payment_failed`, `supplier_failed`, `email_failed`; SMTP повторяется из сохранённого зашифрованного кода без новой покупки. Return-страница устойчиво повторяет временно неудачный polling.
 - Подготовлен защищённый lifecycle заказа: PostgreSQL-схема и версионная миграция, серверная повторная проверка offer/цены, регистрация и проверка платежа Альфа-Банка, идемпотентная Gift Card-покупка FazerCards и SMTP-доставка. Railway start применяет additive-миграцию под advisory lock до запуска API.
 - Frontend создаёт checkout без передачи цены, перенаправляет на платёжную форму и на `/order/return` показывает серверный статус и существующее окно «Заказ выполнен». Оплата доступна только для четырёх Apple Gift Card; Steam, PUBG, Free Fire и Telegram остаются в безопасном состоянии «Оплата скоро будет доступна».
 - В Railway добавлены два отдельных криптографических секрета для order token и AES-256-GCM, а `ENABLE_FAZER_GIFTCARD_ORDERS` включён для ручного первого production-заказа. Существующие FazerCards, Alfa, SMTP и PostgreSQL variables не изменялись.

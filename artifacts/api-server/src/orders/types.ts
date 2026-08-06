@@ -5,6 +5,9 @@ export type OrderStatus =
   | "supplier_processing"
   | "fulfilled"
   | "email_sent"
+  | "payment_failed"
+  | "supplier_failed"
+  | "email_failed"
   | "failed"
   | "cancelled"
   | "refunded";
@@ -31,6 +34,10 @@ export type OrderRecord = {
   supplierPurchasedAt: Date | null;
   emailSentAt: Date | null;
   notificationViewedAt: Date | null;
+  processingOwner: string | null;
+  processingLeaseUntil: Date | null;
+  nextAttemptAt: Date;
+  attemptCount: number;
   createdAt: Date;
   updatedAt: Date;
   errorCode: string | null;
@@ -49,6 +56,10 @@ export type NewOrder = Omit<
   | "supplierPurchasedAt"
   | "emailSentAt"
   | "notificationViewedAt"
+  | "processingOwner"
+  | "processingLeaseUntil"
+  | "nextAttemptAt"
+  | "attemptCount"
   | "createdAt"
   | "updatedAt"
   | "errorCode"
@@ -67,7 +78,7 @@ export interface OrderRepository {
   fail(id: string, code: string, message: string): Promise<void>;
   setTerminalStatus(
     id: string,
-    status: "failed" | "cancelled" | "refunded",
+    status: "payment_failed" | "failed" | "cancelled" | "refunded",
     code: string,
     message: string,
   ): Promise<OrderRecord>;
@@ -81,4 +92,19 @@ export interface OrderRepository {
   ): Promise<OrderRecord>;
   markEmailSent(id: string): Promise<OrderRecord>;
   markNotificationViewed(id: string): Promise<OrderRecord>;
+  claimNextProcessable(workerId: string, leaseMs: number): Promise<OrderRecord | null>;
+  releaseProcessing(
+    id: string,
+    workerId: string,
+    delayMs: number,
+    clearError?: boolean,
+  ): Promise<void>;
+  recordProcessingError(
+    id: string,
+    workerId: string,
+    status: OrderStatus | null,
+    code: string,
+    message: string,
+    delayMs: number,
+  ): Promise<void>;
 }

@@ -10,7 +10,7 @@ import {
   maskEmail,
   verifyAccessToken,
 } from "./security";
-import type { OrderRecord, OrderRepository } from "./types";
+import type { OrderRecord, OrderRepository, OrderStatus } from "./types";
 
 export const createOrderInputSchema = z.object({
   productSlug: z.string().min(1).max(100),
@@ -19,6 +19,15 @@ export const createOrderInputSchema = z.object({
   checkoutKey: z.string().uuid(),
 });
 
+type AlfaStatus = {
+  ErrorCode?: string | number;
+  ErrorMessage?: string;
+  OrderStatus?: number;
+  OrderNumber?: string;
+  Amount?: number;
+  currency?: string;
+};
+
 type AlfaClient = {
   register(input: {
     orderNumber: string;
@@ -26,13 +35,13 @@ type AlfaClient = {
     description: string;
     returnUrl: string;
   }): Promise<{ orderId: string; paymentUrl: string }>;
-  status(orderId: string): Promise<{
-    ErrorCode?: string | number;
-    OrderStatus?: number;
-    OrderNumber?: string;
-    Amount?: number;
-    currency?: string;
-  }>;
+  status(orderId: string): Promise<AlfaStatus>;
+};
+
+type SupplierResult = {
+  orderId: string;
+  status: "processing" | "completed" | "failed";
+  code: string | null;
 };
 
 type SupplierClient = {
@@ -43,11 +52,7 @@ type SupplierClient = {
   }): Promise<SupplierResult>;
   status(orderId: string): Promise<SupplierResult>;
 };
-type SupplierResult = {
-  orderId: string;
-  status: "processing" | "completed" | "failed";
-  code: string | null;
-};
+
 type EmailSender = {
   sendGiftCard(input: {
     publicId: string;
@@ -57,7 +62,31 @@ type EmailSender = {
     code: string;
   }): Promise<unknown>;
 };
+
+type SafeLogger = {
+  info(fields: Record<string, unknown>, message: string): void;
+  warn(fields: Record<string, unknown>, message: string): void;
+  error(fields: Record<string, unknown>, message: string): void;
+};
+
 type OfferResolver = typeof resolveGiftCardCheckoutOffer;
+
+const noopLogger: SafeLogger = {
+  info() {},
+  warn() {},
+  error() {},
+};
+
+class RetryableOrderError extends Error {
+  constructor(
+    readonly retryStatus: OrderStatus,
+    readonly safeCode: "payment_failed" | "supplier_failed" | "email_failed",
+    readonly safeMessage: string,
+    options?: ErrorOptions,
+  ) {
+    super(safeCode, options);
+  }
+}
 
 function publicAppUrl(): string {
   const raw = process.env.PUBLIC_APP_URL;
@@ -69,6 +98,26 @@ function publicAppUrl(): string {
   return url.origin;
 }
 
+function retryDelay(attemptCount: number): number {
+  return Math.min(60_000, 2_000 * (2 ** Math.min(attemptCount, 5)));
+}
+
+function publicOrder(order: OrderRecord, now: Date) {
+  const notificationEligible = order.status === "email_sent"
+    && !order.notificationViewedAt
+    && Boolean(order.emailSentAt)
+    && now.getTime() - order.emailSentAt!.getTime() <= 10 * 60_000;
+  return {
+    publicId: order.publicId,
+    status: order.status,
+    productName: order.productName,
+    nominalLabel: order.nominalLabel,
+    emailMasked: maskEmail(order.email),
+    notificationEligible,
+    errorMessage: order.errorMessageSafe,
+  };
+}
+
 export function createOrderService(deps: {
   repository: OrderRepository;
   alfa: AlfaClient;
@@ -77,11 +126,13 @@ export function createOrderService(deps: {
   resolveOffer?: OfferResolver;
   now?: () => Date;
   purchasesEnabled?: () => boolean;
+  logger?: SafeLogger;
 }) {
   const resolveOffer = deps.resolveOffer ?? resolveGiftCardCheckoutOffer;
   const now = deps.now ?? (() => new Date());
   const purchasesEnabled = deps.purchasesEnabled
     ?? (() => process.env.ENABLE_FAZER_GIFTCARD_ORDERS === "true");
+  const log = deps.logger ?? noopLogger;
 
   function authorize(order: OrderRecord | null, token: string): OrderRecord {
     if (!order || !token || !verifyAccessToken(token, order.accessTokenHash)) {
@@ -90,36 +141,10 @@ export function createOrderService(deps: {
     return order;
   }
 
-  async function deliver(order: OrderRecord, result: SupplierResult) {
-    if (result.status === "failed") {
-      await deps.repository.fail(order.id, "SUPPLIER_FAILED", "Поставщик не выполнил заказ");
-      return deps.repository.findByPublicId(order.publicId);
-    }
-    if (result.status === "processing") {
-      return deps.repository.saveSupplierProcessing(order.id, result.orderId);
-    }
-    if (!result.code) {
-      await deps.repository.fail(order.id, "SUPPLIER_CODE_MISSING", "Поставщик не вернул цифровой код");
-      return deps.repository.findByPublicId(order.publicId);
-    }
-    const fulfilled = await deps.repository.saveFulfilled(
-      order.id,
-      result.orderId,
-      encryptDeliveryCode(result.code),
-    );
-    await deps.email.sendGiftCard({
-      publicId: fulfilled.publicId,
-      email: fulfilled.email,
-      productName: fulfilled.productName,
-      nominalLabel: fulfilled.nominalLabel,
-      code: result.code,
-    });
-    return deps.repository.markEmailSent(order.id);
-  }
-
-  async function fulfill(order: OrderRecord): Promise<OrderRecord> {
-    if (order.status === "email_sent") return order;
-    if (order.status === "fulfilled" && order.deliveryCodeEncrypted) {
+  async function sendEmail(order: OrderRecord) {
+    if (!order.deliveryCodeEncrypted) throw new Error("DELIVERY_CODE_MISSING");
+    log.info({ event: "order_email_started", publicId: order.publicId, status: order.status }, "Order email started");
+    try {
       await deps.email.sendGiftCard({
         publicId: order.publicId,
         email: order.email,
@@ -127,25 +152,172 @@ export function createOrderService(deps: {
         nominalLabel: order.nominalLabel,
         code: decryptDeliveryCode(order.deliveryCodeEncrypted),
       });
-      return deps.repository.markEmailSent(order.id);
+    } catch (error) {
+      throw new RetryableOrderError(
+        "email_failed",
+        "email_failed",
+        "Не удалось отправить письмо. Отправка будет повторена",
+        { cause: error },
+      );
     }
-    if (order.status === "supplier_processing" && order.supplierOrderId) {
-      return (await deliver(order, await deps.supplier.status(order.supplierOrderId))) ?? order;
-    }
-    if (!purchasesEnabled()) return order;
+    const sent = await deps.repository.markEmailSent(order.id);
+    log.info({ event: "order_email_sent", publicId: sent.publicId, status: sent.status }, "Order email sent");
+    return sent;
+  }
 
-    const claimed = order.status === "payment_confirmed"
-      ? await deps.repository.claimSupplierPurchase(order.id)
-      : order.status === "supplier_processing" && !order.supplierOrderId
-        ? order
-        : null;
-    if (!claimed) return (await deps.repository.findByPublicId(order.publicId)) ?? order;
-    const result = await deps.supplier.purchaseGiftCard({
-      categoryId: claimed.supplierProductId,
-      cardId: claimed.supplierOfferId,
-      idempotencyKey: claimed.supplierIdempotencyKey,
-    });
-    return (await deliver(claimed, result)) ?? claimed;
+  async function handleSupplierResult(order: OrderRecord, result: SupplierResult) {
+    log.info(
+      { event: "order_supplier_result", publicId: order.publicId, status: order.status, supplierStatus: result.status },
+      "Supplier result received",
+    );
+    if (result.status === "failed") {
+      await deps.repository.recordProcessingError(
+        order.id,
+        order.processingOwner!,
+        "supplier_failed",
+        "supplier_failed",
+        "Поставщик не выполнил заказ",
+        0,
+      );
+      return null;
+    }
+    if (result.status === "processing") {
+      return deps.repository.saveSupplierProcessing(order.id, result.orderId);
+    }
+    if (!result.code) {
+      throw new RetryableOrderError(
+        "supplier_processing",
+        "supplier_failed",
+        "Поставщик пока не вернул цифровой код",
+      );
+    }
+    return deps.repository.saveFulfilled(
+      order.id,
+      result.orderId,
+      encryptDeliveryCode(result.code),
+    );
+  }
+
+  async function processClaimed(initial: OrderRecord, workerId: string) {
+    let order = initial;
+    log.info(
+      { event: "order_processing_started", publicId: order.publicId, status: order.status },
+      "Order processing started",
+    );
+
+    if (order.status === "payment_pending") {
+      if (!order.alfaOrderId) throw new Error("ALFA_ORDER_ID_MISSING");
+      let alfaStatus: AlfaStatus;
+      try {
+        alfaStatus = await deps.alfa.status(order.alfaOrderId);
+      } catch (error) {
+        throw new RetryableOrderError(
+          "payment_pending",
+          "payment_failed",
+          "Не удалось проверить платёж. Проверка будет повторена",
+          { cause: error },
+        );
+      }
+      log.info(
+        {
+          event: "order_payment_status",
+          publicId: order.publicId,
+          status: order.status,
+          alfaOrderStatus: alfaStatus.OrderStatus ?? null,
+          alfaErrorCode: alfaStatus.ErrorCode ?? null,
+        },
+        "Alfa payment status received",
+      );
+      const terminalStatus = getAlfaTerminalOrderStatus(alfaStatus);
+      const trusted = alfaStatus.OrderNumber === order.publicId
+        && Number(alfaStatus.Amount) === order.customerPriceRub * 100
+        && (!alfaStatus.currency || alfaStatus.currency === "810");
+      if ((isAlfaPaymentSuccessful(alfaStatus) || terminalStatus) && !trusted) {
+        await deps.repository.setTerminalStatus(
+          order.id,
+          "payment_failed",
+          "payment_failed",
+          "Параметры платежа не совпали",
+        );
+        await deps.repository.releaseProcessing(order.id, workerId, 0, false);
+        return;
+      }
+      if (terminalStatus) {
+        const status = terminalStatus === "failed" ? "payment_failed" : terminalStatus;
+        const message = status === "cancelled"
+          ? "Платёж отменён"
+          : status === "refunded"
+            ? "По платежу выполнен возврат"
+            : "Платёж не выполнен";
+        await deps.repository.setTerminalStatus(order.id, status, "payment_failed", message);
+        await deps.repository.releaseProcessing(order.id, workerId, 0, false);
+        return;
+      }
+      if (!isAlfaPaymentSuccessful(alfaStatus)) {
+        await deps.repository.releaseProcessing(order.id, workerId, 5_000);
+        return;
+      }
+      order = await deps.repository.confirmPayment(order.id);
+      log.info(
+        { event: "order_payment_confirmed", publicId: order.publicId, status: order.status },
+        "Order payment confirmed",
+      );
+    }
+
+    if (order.status === "payment_confirmed") {
+      if (!purchasesEnabled()) {
+        throw new RetryableOrderError(
+          "payment_confirmed",
+          "supplier_failed",
+          "Обработка поставщиком временно отключена",
+        );
+      }
+      const claimed = await deps.repository.claimSupplierPurchase(order.id);
+      if (!claimed) {
+        await deps.repository.releaseProcessing(order.id, workerId, 2_000);
+        return;
+      }
+      order = claimed;
+    }
+
+    if (order.status === "supplier_processing") {
+      let supplierResult: SupplierResult;
+      try {
+        if (order.supplierOrderId) {
+          supplierResult = await deps.supplier.status(order.supplierOrderId);
+        } else {
+          log.info(
+            { event: "order_supplier_started", publicId: order.publicId, status: order.status },
+            "Supplier purchase started",
+          );
+          supplierResult = await deps.supplier.purchaseGiftCard({
+            categoryId: order.supplierProductId,
+            cardId: order.supplierOfferId,
+            idempotencyKey: order.supplierIdempotencyKey,
+          });
+        }
+      } catch (error) {
+        throw new RetryableOrderError(
+          "supplier_processing",
+          "supplier_failed",
+          "Ошибка поставщика. Попытка будет повторена",
+          { cause: error },
+        );
+      }
+      const next = await handleSupplierResult(order, supplierResult);
+      if (!next) return;
+      order = next;
+      if (order.status === "supplier_processing") {
+        await deps.repository.releaseProcessing(order.id, workerId, 5_000);
+        return;
+      }
+    }
+
+    if (order.status === "fulfilled" || order.status === "email_failed") {
+      order = await sendEmail(order);
+    }
+
+    await deps.repository.releaseProcessing(order.id, workerId, 0);
   }
 
   return {
@@ -194,51 +366,60 @@ export function createOrderService(deps: {
     },
 
     async status(publicId: string, token: string) {
-      let order = authorize(await deps.repository.findByPublicId(publicId), token);
-      if (
-        order.alfaOrderId
-        && !["created", "failed", "cancelled", "refunded"].includes(order.status)
-      ) {
-        const status = await deps.alfa.status(order.alfaOrderId);
-        const terminalStatus = getAlfaTerminalOrderStatus(status);
-        const statusHasTrustedOrder = status.OrderNumber === order.publicId
-          && Number(status.Amount) === order.customerPriceRub * 100
-          && (!status.currency || status.currency === "810");
-        if ((isAlfaPaymentSuccessful(status) || terminalStatus) && !statusHasTrustedOrder) {
-          await deps.repository.fail(order.id, "PAYMENT_MISMATCH", "Параметры платежа не совпали");
-        } else if (terminalStatus) {
-          const message = terminalStatus === "cancelled"
-            ? "Платёж отменён"
-            : terminalStatus === "refunded"
-              ? "По платежу выполнен возврат"
-              : "Платёж не выполнен";
-          order = await deps.repository.setTerminalStatus(
+      const order = authorize(await deps.repository.findByPublicId(publicId), token);
+      return publicOrder(order, now());
+    },
+
+    async processNext(workerId: string, leaseMs = 120_000): Promise<boolean> {
+      const order = await deps.repository.claimNextProcessable(workerId, leaseMs);
+      if (!order) return false;
+      try {
+        await processClaimed(order, workerId);
+      } catch (error) {
+        if (error instanceof RetryableOrderError) {
+          const delayMs = retryDelay(order.attemptCount);
+          await deps.repository.recordProcessingError(
             order.id,
-            terminalStatus,
-            `PAYMENT_${terminalStatus.toUpperCase()}`,
-            message,
+            workerId,
+            error.retryStatus,
+            error.safeCode,
+            error.safeMessage,
+            delayMs,
           );
-        } else if (order.status === "payment_pending" && isAlfaPaymentSuccessful(status)) {
-          order = await deps.repository.confirmPayment(order.id);
+          log.warn(
+            {
+              event: "order_processing_retry",
+              publicId: order.publicId,
+              status: error.retryStatus,
+              code: error.safeCode,
+              retryInMs: delayMs,
+            },
+            "Order processing scheduled for retry",
+          );
+        } else {
+          const retryStatus = order.status === "fulfilled" || order.status === "email_failed"
+            ? "email_failed"
+            : order.status;
+          const code = retryStatus === "payment_pending"
+            ? "payment_failed"
+            : retryStatus === "email_failed"
+              ? "email_failed"
+              : "supplier_failed";
+          await deps.repository.recordProcessingError(
+            order.id,
+            workerId,
+            null,
+            code,
+            "Временная ошибка обработки. Попытка будет повторена",
+            retryDelay(order.attemptCount),
+          );
+          log.error(
+            { event: "order_processing_error", publicId: order.publicId, status: retryStatus, code },
+            "Unexpected order processing error",
+          );
         }
       }
-      order = (await deps.repository.findByPublicId(publicId)) ?? order;
-      if (["payment_confirmed", "supplier_processing", "fulfilled", "email_sent"].includes(order.status)) {
-        order = await fulfill(order);
-      }
-      const notificationEligible = order.status === "email_sent"
-        && !order.notificationViewedAt
-        && Boolean(order.emailSentAt)
-        && now().getTime() - order.emailSentAt!.getTime() <= 10 * 60_000;
-      return {
-        publicId: order.publicId,
-        status: order.status,
-        productName: order.productName,
-        nominalLabel: order.nominalLabel,
-        emailMasked: maskEmail(order.email),
-        notificationEligible,
-        errorMessage: order.errorMessageSafe,
-      };
+      return true;
     },
 
     async markNotificationViewed(publicId: string, token: string) {
@@ -248,7 +429,7 @@ export function createOrderService(deps: {
 
     async retryEmail(publicId: string, token: string) {
       const order = authorize(await deps.repository.findByPublicId(publicId), token);
-      if (!order.deliveryCodeEncrypted || !["fulfilled", "email_sent"].includes(order.status)) {
+      if (!order.deliveryCodeEncrypted || !["fulfilled", "email_failed", "email_sent"].includes(order.status)) {
         throw new Error("ORDER_NOT_FULFILLED");
       }
       await deps.email.sendGiftCard({

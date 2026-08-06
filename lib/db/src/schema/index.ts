@@ -16,6 +16,9 @@ export const orderStatusEnum = pgEnum("order_status", [
   "supplier_processing",
   "fulfilled",
   "email_sent",
+  "payment_failed",
+  "supplier_failed",
+  "email_failed",
   "failed",
   "cancelled",
   "refunded",
@@ -45,6 +48,10 @@ export const orders = pgTable(
     supplierPurchasedAt: timestamp("supplier_purchased_at", { withTimezone: true }),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     notificationViewedAt: timestamp("notification_viewed_at", { withTimezone: true }),
+    processingOwner: text("processing_owner"),
+    processingLeaseUntil: timestamp("processing_lease_until", { withTimezone: true }),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    attemptCount: integer("attempt_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     errorCode: text("error_code"),
@@ -60,6 +67,7 @@ export const orders = pgTable(
     ),
     index("orders_status_idx").on(table.status),
     index("orders_created_at_idx").on(table.createdAt),
+    index("orders_processing_idx").on(table.status, table.nextAttemptAt),
   ],
 );
 
