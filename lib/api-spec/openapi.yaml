@@ -183,7 +183,7 @@ components:
           type: string
     OrderStatus:
       type: string
-      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, payment_failed, supplier_failed, email_failed, failed, cancelled, refunded]
+      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, payment_failed, supplier_failed, manual_review, email_failed, failed, cancelled, refunded]
     CreateOrderInput:
       type: object
       additionalProperties: false

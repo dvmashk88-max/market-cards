@@ -20,6 +20,7 @@ export const OrderStatus = {
   email_sent: "email_sent",
   payment_failed: "payment_failed",
   supplier_failed: "supplier_failed",
+  manual_review: "manual_review",
   email_failed: "email_failed",
   failed: "failed",
   cancelled: "cancelled",

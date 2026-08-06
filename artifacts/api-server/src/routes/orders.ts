@@ -47,6 +47,7 @@ function safeError(error: unknown) {
   if (code === "OFFER_UNAVAILABLE") return { status: 409, body: { error: "offer_unavailable", message: "Товар закончился" } };
   if (code === "OFFER_UNAVAILABLE_IDEMPOTENCY") return { status: 409, body: { error: "offer_unavailable", message: "Автоматическая покупка этого товара пока недоступна" } };
   if (code === "ORDER_FIELDS_INVALID") return { status: 400, body: { error: "invalid_order_fields", message: "Проверьте данные аккаунта" } };
+  if (code === "ORDER_RECIPIENT_NOT_CONFIRMED") return { status: 400, body: { error: "recipient_not_confirmed", message: "Подтвердите Telegram username" } };
   if (error instanceof Error && error.name === "SteamLoginUnavailableError") return { status: 422, body: { error: "steam_account_unavailable", message: "Этот аккаунт Steam сейчас нельзя пополнить" } };
   if (error instanceof Error && error.name === "SteamAmountValidationError") return { status: 400, body: { error: "invalid_steam_amount", message: "Проверьте сумму пополнения Steam" } };
   if (code === "SUPPLIER_PURCHASE_DISABLED") return { status: 503, body: { error: "supplier_disabled", message: "Покупка поставщика временно отключена" } };

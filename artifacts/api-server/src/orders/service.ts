@@ -14,6 +14,7 @@ import {
 } from "./security";
 import type { OrderRecord, OrderRepository, OrderStatus } from "./types";
 import type { SupplierPurchase } from "./supplier";
+import { TelegramPurchaseAmbiguousError } from "./supplier";
 
 export const createOrderInputSchema = z.object({
   productSlug: z.string().min(1).max(100),
@@ -106,6 +107,10 @@ function publicAppUrl(): string {
 
 function retryDelay(attemptCount: number): number {
   return Math.min(60_000, 2_000 * (2 ** Math.min(attemptCount, 5)));
+}
+
+function isTelegramOrder(order: OrderRecord): boolean {
+  return order.orderType === "telegram_stars" || order.orderType === "telegram_premium";
 }
 
 function publicOrder(order: OrderRecord, now: Date) {
@@ -305,8 +310,35 @@ export function createOrderService(deps: {
             { event: "order_supplier_started", publicId: order.publicId, status: order.status },
             "Supplier purchase started",
           );
-          if (order.orderType === "telegram_stars" || order.orderType === "telegram_premium") {
-            throw new Error("SUPPLIER_IDEMPOTENCY_UNAVAILABLE");
+          if (isTelegramOrder(order)) {
+            if (order.supplierRequestStartedAt) {
+              await deps.repository.recordProcessingError(
+                order.id,
+                workerId,
+                "manual_review",
+                "supplier_outcome_unknown",
+                "Заказ передан на ручную проверку",
+                0,
+              );
+              log.warn(
+                { event: "telegram_order_manual_review", publicId: order.publicId, status: "manual_review" },
+                "Telegram order requires manual review",
+              );
+              return;
+            }
+            const started = await deps.repository.beginSupplierRequest(order.id, workerId);
+            if (!started) {
+              await deps.repository.recordProcessingError(
+                order.id,
+                workerId,
+                "manual_review",
+                "supplier_outcome_unknown",
+                "Заказ передан на ручную проверку",
+                0,
+              );
+              return;
+            }
+            order = started;
           }
           if (!order.fulfillmentDataEncrypted) throw new Error("FULFILLMENT_DATA_MISSING");
           const data = JSON.parse(decryptOrderData(order.fulfillmentDataEncrypted)) as Record<string, unknown>;
@@ -319,6 +351,26 @@ export function createOrderService(deps: {
           } as SupplierPurchase);
         }
       } catch (error) {
+        if (isTelegramOrder(order) && order.supplierRequestStartedAt && !order.supplierOrderId) {
+          const ambiguous = error instanceof TelegramPurchaseAmbiguousError;
+          await deps.repository.recordProcessingError(
+            order.id,
+            workerId,
+            ambiguous ? "manual_review" : "supplier_failed",
+            ambiguous ? "supplier_outcome_unknown" : "supplier_failed",
+            ambiguous ? "Заказ передан на ручную проверку" : "Поставщик отклонил заказ",
+            0,
+          );
+          log.warn(
+            {
+              event: ambiguous ? "telegram_order_manual_review" : "telegram_order_failed",
+              publicId: order.publicId,
+              status: ambiguous ? "manual_review" : "supplier_failed",
+            },
+            ambiguous ? "Telegram purchase outcome is unknown" : "Telegram purchase was rejected",
+          );
+          return;
+        }
         throw new RetryableOrderError(
           "supplier_processing",
           "supplier_failed",

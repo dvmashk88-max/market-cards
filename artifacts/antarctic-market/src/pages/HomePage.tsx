@@ -24,6 +24,7 @@ import {
   visibleOffers,
 } from "@/lib/nominals";
 import { createOrder } from "@/lib/orders";
+import { isCheckoutReady, isTelegramCheckout } from "@/lib/checkout";
 
 /* ═══════════════════════════════════════════════════════════════════ Data */
 
@@ -277,6 +278,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
 }) {
   const [steamSelection, setSteamSelection] = useState<CheckoutSelection | null>(null);
   const [checkoutData, setCheckoutData] = useState<Record<string, string>>({});
+  const [recipientConfirmed, setRecipientConfirmed] = useState(false);
   const selectedOffer = prod?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
   const availableOffers = sortedAvailableOffers(prod?.offers ?? []);
   const shownOffers = visibleOffers(prod?.offers ?? [], nominalsExpanded);
@@ -285,12 +287,21 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
   const checkoutSupported = Boolean(prod?.checkout.supported);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const requiredFieldsReady = (prod?.checkout.fields ?? []).every((field) => checkoutData[field.key]?.trim());
+  const isTelegram = prod ? isTelegramCheckout(prod.checkout.orderType) : false;
   const selectionReady = prod?.slug === "steam-top-up" ? Boolean(steamSelection) : Boolean(selectedOffer?.available);
-  const checkoutReady = checkoutSupported && selectionReady && requiredFieldsReady && emailValid;
+  const checkoutReady = isCheckoutReady({
+    supported: checkoutSupported,
+    selectionReady,
+    requiredFieldsReady,
+    emailValid,
+    telegram: isTelegram,
+    recipientConfirmed,
+  });
 
   useEffect(() => {
     setSteamSelection(null);
     setCheckoutData({});
+    setRecipientConfirmed(false);
   }, [prod?.slug]);
 
   return (
@@ -380,6 +391,17 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
               {prod?.checkout.message && (
                 <p className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-3 py-3 text-xs leading-relaxed text-amber-100/80">{prod.checkout.message}</p>
               )}
+              {isTelegram && (
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/[0.07] p-3 text-xs leading-relaxed text-cyan-50/85">
+                  <input
+                    type="checkbox"
+                    checked={recipientConfirmed}
+                    onChange={(event) => setRecipientConfirmed(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-violet-500"
+                  />
+                  <span>Проверьте Telegram username.<br />После выполнения заказа изменить получателя невозможно.</span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -416,7 +438,13 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
             <button
               type="button"
               disabled={!checkoutReady || checkoutPending}
-              onClick={() => onCheckout(prod?.slug === "steam-top-up" ? (steamSelection?.data ?? {}) : checkoutData)}
+              onClick={() => onCheckout(
+                prod?.slug === "steam-top-up"
+                  ? (steamSelection?.data ?? {})
+                  : isTelegram
+                    ? { ...checkoutData, recipient_confirmed: String(recipientConfirmed) }
+                    : checkoutData,
+              )}
               className="mt-4 w-full rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-600/80 to-cyan-600/70 px-4 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-purple-400/20 disabled:bg-none disabled:bg-purple-500/15 disabled:text-white/45"
             >
               {checkoutPending

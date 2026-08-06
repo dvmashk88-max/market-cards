@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { NewOrder, OrderRecord, OrderRepository } from "./types";
 import { createOrderService } from "./service";
+import { TelegramPurchaseAmbiguousError } from "./supplier";
 
 process.env.ORDER_ACCESS_TOKEN_SECRET = "test-access-secret-at-least-32-bytes";
 process.env.ORDER_DATA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
@@ -21,6 +22,7 @@ class MemoryRepository implements OrderRepository {
       alfaOrderId: null,
       alfaPaymentUrl: null,
       supplierOrderId: null,
+      supplierRequestStartedAt: null,
       deliveryCodeEncrypted: null,
       fulfillmentDataEncrypted: input.fulfillmentDataEncrypted,
       paymentConfirmedAt: null,
@@ -61,6 +63,11 @@ class MemoryRepository implements OrderRepository {
     if (!row || row.status !== "payment_confirmed") return null;
     this.supplierClaims += 1;
     return this.update(id, { status: "supplier_processing" });
+  }
+  async beginSupplierRequest(id: string, workerId: string) {
+    const row = this.rows.find((x) => x.id === id && x.processingOwner === workerId);
+    if (!row || row.supplierRequestStartedAt || row.status !== "supplier_processing") return null;
+    return this.update(id, { supplierRequestStartedAt: new Date() });
   }
   async saveSupplierProcessing(id: string, supplierOrderId: string) {
     return this.update(id, { supplierOrderId, supplierPurchasedAt: new Date() });
@@ -132,7 +139,7 @@ function harness({
   orderType = "gift_card",
 }: {
   purchasesEnabled?: boolean;
-  orderType?: "gift_card" | "steam_topup" | "game_topup";
+  orderType?: "gift_card" | "steam_topup" | "game_topup" | "telegram_stars" | "telegram_premium";
 } = {}) {
   const repository = new MemoryRepository();
   let alfaStatus: {
@@ -146,6 +153,7 @@ function harness({
   const supplierKeys: string[] = [];
   const supplierTypes: string[] = [];
   let supplierFailureOnce = false;
+  let supplierAmbiguousFailureOnce = false;
   let supplierResult: {
     orderId: string;
     status: "processing" | "completed" | "failed";
@@ -173,6 +181,10 @@ function harness({
         if (supplierFailureOnce) {
           supplierFailureOnce = false;
           throw new Error("temporary supplier failure");
+        }
+        if (supplierAmbiguousFailureOnce) {
+          supplierAmbiguousFailureOnce = false;
+          throw new TelegramPurchaseAmbiguousError("timeout");
         }
         return supplierResult;
       },
@@ -209,7 +221,11 @@ function harness({
           ? { steamLogin: "test_login", currency: "RUB" as const, amount: "500" }
           : orderType === "game_topup"
             ? { fields: { player_id: "123456" } }
-            : {},
+            : orderType === "telegram_stars"
+              ? { telegram_username: "@buyer", quantity: 100 }
+              : orderType === "telegram_premium"
+                ? { telegram_username: "@buyer", months: 3 as const }
+                : {},
       } as Awaited<ReturnType<typeof import("../integrations/fazercards/storefront").resolveCheckoutOffer>>;
     },
     now: () => new Date("2026-01-01T00:09:00Z"),
@@ -221,6 +237,7 @@ function harness({
     setAlfaStatus: (value: typeof alfaStatus) => { alfaStatus = value; },
     setSupplierResult: (value: typeof supplierResult) => { supplierResult = value; },
     failSupplierOnce: () => { supplierFailureOnce = true; },
+    failSupplierAmbiguouslyOnce: () => { supplierAmbiguousFailureOnce = true; },
     failEmailOnce: () => { emailFailureOnce = true; },
     supplierKeys: () => supplierKeys,
     supplierTypes: () => supplierTypes,
@@ -407,3 +424,43 @@ for (const orderType of ["steam_topup", "game_topup"] as const) {
     assert.equal(h.counts().emailCalls, 1);
   });
 }
+
+for (const orderType of ["telegram_stars", "telegram_premium"] as const) {
+  test(`${orderType} performs one fail-closed purchase and completes by email`, async () => {
+    const h = harness({ orderType });
+    h.setSupplierResult({ orderId: `ord-${orderType}`, status: "completed", code: null });
+    const created = await h.service.create({ ...input, checkoutKey: crypto.randomUUID(), checkoutData: {} });
+    h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+    await h.service.processNext("worker-telegram");
+    assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
+    assert.deepEqual(h.supplierTypes(), [orderType]);
+    assert.equal(h.counts().supplierCalls, 1);
+    assert.ok(h.repository.rows[0]?.supplierRequestStartedAt);
+  });
+}
+
+test("ambiguous Telegram timeout enters manual_review and never repeats purchase", async () => {
+  const h = harness({ orderType: "telegram_stars" });
+  const created = await h.service.create({ ...input, checkoutKey: crypto.randomUUID(), checkoutData: {} });
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  h.failSupplierAmbiguouslyOnce();
+  await h.service.processNext("worker-timeout");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "manual_review");
+  assert.equal(h.counts().supplierCalls, 1);
+  assert.equal(await h.service.processNext("worker-retry"), false);
+  assert.equal(h.counts().supplierCalls, 1);
+});
+
+test("Telegram email retry never performs a second supplier purchase", async () => {
+  const h = harness({ orderType: "telegram_premium" });
+  h.setSupplierResult({ orderId: "ord-premium", status: "completed", code: null });
+  const created = await h.service.create({ ...input, checkoutKey: crypto.randomUUID(), checkoutData: {} });
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  h.failEmailOnce();
+  await h.service.processNext("worker-email");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_failed");
+  await h.service.processNext("worker-email-retry");
+  assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
+  assert.equal(h.counts().supplierCalls, 1);
+  assert.equal(h.counts().emailCalls, 2);
+});

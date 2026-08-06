@@ -7,6 +7,7 @@ export type OrderStatus =
   | "email_sent"
   | "payment_failed"
   | "supplier_failed"
+  | "manual_review"
   | "email_failed"
   | "failed"
   | "cancelled"
@@ -36,6 +37,7 @@ export type OrderRecord = {
   alfaOrderId: string | null;
   alfaPaymentUrl: string | null;
   supplierOrderId: string | null;
+  supplierRequestStartedAt: Date | null;
   supplierIdempotencyKey: string;
   deliveryCodeEncrypted: string | null;
   fulfillmentDataEncrypted: string | null;
@@ -60,6 +62,7 @@ export type NewOrder = Omit<
   | "alfaOrderId"
   | "alfaPaymentUrl"
   | "supplierOrderId"
+  | "supplierRequestStartedAt"
   | "deliveryCodeEncrypted"
   | "paymentConfirmedAt"
   | "supplierPurchasedAt"
@@ -93,6 +96,7 @@ export interface OrderRepository {
   ): Promise<OrderRecord>;
   confirmPayment(id: string): Promise<OrderRecord>;
   claimSupplierPurchase(id: string): Promise<OrderRecord | null>;
+  beginSupplierRequest(id: string, workerId: string): Promise<OrderRecord | null>;
   saveSupplierProcessing(id: string, supplierOrderId: string): Promise<OrderRecord>;
   saveFulfilled(
     id: string,

@@ -1,6 +1,6 @@
 export type PublicOrderStatus = {
   publicId: string;
-  status: "created" | "payment_pending" | "payment_confirmed" | "supplier_processing" | "fulfilled" | "email_sent" | "payment_failed" | "supplier_failed" | "email_failed" | "failed" | "cancelled" | "refunded";
+  status: "created" | "payment_pending" | "payment_confirmed" | "supplier_processing" | "fulfilled" | "email_sent" | "payment_failed" | "supplier_failed" | "manual_review" | "email_failed" | "failed" | "cancelled" | "refunded";
   productName: string;
   nominalLabel: string;
   emailMasked: string;

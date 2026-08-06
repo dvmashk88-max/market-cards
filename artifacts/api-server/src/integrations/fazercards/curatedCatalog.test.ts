@@ -13,7 +13,7 @@ test("public storefront is limited to four categories and nine products", () => 
   assert.equal(new Set(curatedCatalog.map((product) => product.slug)).size, 9);
 });
 
-test("all existing products have explicit order types and Telegram remains safely gated", () => {
+test("all existing products have explicit supported order types", () => {
   const configs = Object.fromEntries(curatedCatalog.map((product) => [
     product.slug,
     getCheckoutConfig(product),
@@ -24,8 +24,9 @@ test("all existing products have explicit order types and Telegram remains safel
   assert.equal(configs["free-fire"]?.orderType, "game_topup");
   assert.equal(configs["telegram-stars"]?.orderType, "telegram_stars");
   assert.equal(configs["telegram-premium"]?.orderType, "telegram_premium");
-  assert.equal(configs["telegram-stars"]?.supported, false);
-  assert.equal(configs["telegram-premium"]?.supported, false);
+  assert.equal(configs["telegram-stars"]?.supported, true);
+  assert.equal(configs["telegram-premium"]?.supported, true);
+  assert.deepEqual(configs["telegram-stars"]?.fields.map((field) => field.key), ["telegram_username"]);
 });
 
 test("Apple storefront keeps the four required regions and flags", () => {

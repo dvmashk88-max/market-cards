@@ -19,7 +19,13 @@ export type SupplierResult = {
 export type SupplierPurchase =
   | { orderType: "gift_card"; categoryId: string; offerId: string; data: Record<string, never>; idempotencyKey: string }
   | { orderType: "steam_topup"; categoryId: string; offerId: string; data: { steamLogin: string; currency: "USD" | "RUB" | "UAH" | "KZT"; amount: string }; idempotencyKey: string }
-  | { orderType: "game_topup"; categoryId: string; offerId: string; data: { fields: Record<string, string> }; idempotencyKey: string };
+  | { orderType: "game_topup"; categoryId: string; offerId: string; data: { fields: Record<string, string> }; idempotencyKey: string }
+  | { orderType: "telegram_stars"; categoryId: string; offerId: string; data: { telegram_username: string; quantity: number }; idempotencyKey: string }
+  | { orderType: "telegram_premium"; categoryId: string; offerId: string; data: { telegram_username: string; months: 3 | 6 | 12 }; idempotencyKey: string };
+
+export class TelegramPurchaseAmbiguousError extends Error {
+  readonly name = "TelegramPurchaseAmbiguousError";
+}
 
 function normalize(payload: z.infer<typeof responseSchema>): SupplierResult {
   const order = payload.order;
@@ -57,6 +63,39 @@ async function request(
 }
 
 export function createSupplierClient(fetchImpl: typeof fetch = fetch) {
+  async function purchaseTelegram(input: Extract<SupplierPurchase, { orderType: "telegram_stars" | "telegram_premium" }>) {
+    const cfg = getFazerCardsConfig();
+    const path = input.orderType === "telegram_stars"
+      ? "/api/v2/telegram/stars/buy"
+      : "/api/v2/telegram/premium/buy";
+    let response: Response;
+    try {
+      response = await fetchImpl(new URL(path, cfg.baseUrl.origin), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-API-Key": cfg.apiKey,
+        },
+        body: JSON.stringify(input.data),
+        signal: AbortSignal.timeout(cfg.timeoutMs),
+      });
+    } catch (error) {
+      throw new TelegramPurchaseAmbiguousError("TELEGRAM_PURCHASE_OUTCOME_UNKNOWN", { cause: error });
+    }
+    if (!response.ok) {
+      if (response.status >= 500) {
+        throw new TelegramPurchaseAmbiguousError(`TELEGRAM_PURCHASE_HTTP_${response.status}`);
+      }
+      throw new Error(`SUPPLIER_HTTP_${response.status}`);
+    }
+    try {
+      return normalize(responseSchema.parse(await response.json()));
+    } catch (error) {
+      throw new TelegramPurchaseAmbiguousError("TELEGRAM_PURCHASE_RESPONSE_INVALID", { cause: error });
+    }
+  }
+
   async function purchase(input: SupplierPurchase) {
     if (process.env.ENABLE_FAZER_GIFTCARD_ORDERS !== "true") {
       throw new Error("SUPPLIER_PURCHASE_DISABLED");
@@ -74,6 +113,9 @@ export function createSupplierClient(fetchImpl: typeof fetch = fetch) {
         headers: { "Idempotency-Key": input.idempotencyKey },
         body: JSON.stringify(input.data),
       }, fetchImpl);
+    }
+    if (input.orderType === "telegram_stars" || input.orderType === "telegram_premium") {
+      return purchaseTelegram(input);
     }
     return request("/api/v2/topups/order", {
       method: "POST",

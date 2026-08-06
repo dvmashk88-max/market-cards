@@ -19,6 +19,7 @@ function map(row: Record<string, unknown>): OrderRecord {
     alfaOrderId: row.alfa_order_id ? String(row.alfa_order_id) : null,
     alfaPaymentUrl: row.alfa_payment_url ? String(row.alfa_payment_url) : null,
     supplierOrderId: row.supplier_order_id ? String(row.supplier_order_id) : null,
+    supplierRequestStartedAt: row.supplier_request_started_at as Date | null,
     supplierIdempotencyKey: String(row.supplier_idempotency_key),
     deliveryCodeEncrypted: row.delivery_code_encrypted ? String(row.delivery_code_encrypted) : null,
     fulfillmentDataEncrypted: row.fulfillment_data_encrypted ? String(row.fulfillment_data_encrypted) : null,
@@ -126,6 +127,15 @@ export const orderRepository: OrderRepository = {
     } finally {
       client.release();
     }
+  },
+  async beginSupplierRequest(id, workerId) {
+    return one(
+      `UPDATE orders SET supplier_request_started_at=now(), updated_at=now()
+       WHERE id=$1 AND processing_owner=$2 AND status='supplier_processing'
+         AND supplier_request_started_at IS NULL
+       RETURNING *`,
+      [id, workerId],
+    );
   },
   async saveSupplierProcessing(id, supplierOrderId) {
     const result = await one(

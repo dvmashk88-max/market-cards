@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSupplierClient } from "./supplier";
+import { createSupplierClient, TelegramPurchaseAmbiguousError } from "./supplier";
 
 process.env.FAZERCARDS_API_BASE = "https://fazer.example";
 process.env.FAZERCARDS_API_KEY = "test-key";
@@ -88,3 +88,62 @@ for (const scenario of [
     delete process.env.ENABLE_FAZER_GIFTCARD_ORDERS;
   });
 }
+
+for (const scenario of [
+  {
+    name: "Telegram Stars",
+    input: {
+      orderType: "telegram_stars" as const,
+      categoryId: "telegram_stars",
+      offerId: "stars-100",
+      data: { telegram_username: "@buyer", quantity: 100 },
+      idempotencyKey: "local-only",
+    },
+    path: "/api/v2/telegram/stars/buy",
+    body: { telegram_username: "@buyer", quantity: 100 },
+  },
+  {
+    name: "Telegram Premium",
+    input: {
+      orderType: "telegram_premium" as const,
+      categoryId: "telegram_premium",
+      offerId: "premium-3-months",
+      data: { telegram_username: "@buyer", months: 3 as const },
+      idempotencyKey: "local-only",
+    },
+    path: "/api/v2/telegram/premium/buy",
+    body: { telegram_username: "@buyer", months: 3 },
+  },
+]) {
+  test(`${scenario.name} uses the confirmed contract without an unsupported idempotency header`, async () => {
+    process.env.ENABLE_FAZER_GIFTCARD_ORDERS = "true";
+    let requestUrl = "";
+    let requestInit: RequestInit | undefined;
+    const fetchMock: typeof fetch = async (input, init) => {
+      requestUrl = String(input);
+      requestInit = init;
+      return new Response(JSON.stringify({ ok: true, order: { id: "ord-telegram", status: "completed" } }), { status: 201 });
+    };
+    await createSupplierClient(fetchMock).purchase(scenario.input);
+    assert.equal(requestUrl, `https://fazer.example${scenario.path}`);
+    assert.equal(new Headers(requestInit?.headers).get("Idempotency-Key"), null);
+    assert.deepEqual(JSON.parse(String(requestInit?.body)), scenario.body);
+    delete process.env.ENABLE_FAZER_GIFTCARD_ORDERS;
+  });
+}
+
+test("Telegram transport timeout is classified as an ambiguous purchase outcome", async () => {
+  process.env.ENABLE_FAZER_GIFTCARD_ORDERS = "true";
+  const fetchMock: typeof fetch = async () => { throw new Error("timeout"); };
+  await assert.rejects(
+    createSupplierClient(fetchMock).purchase({
+      orderType: "telegram_stars",
+      categoryId: "telegram_stars",
+      offerId: "stars-100",
+      data: { telegram_username: "@buyer", quantity: 100 },
+      idempotencyKey: "local-only",
+    }),
+    TelegramPurchaseAmbiguousError,
+  );
+  delete process.env.ENABLE_FAZER_GIFTCARD_ORDERS;
+});

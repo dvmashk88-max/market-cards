@@ -128,16 +128,14 @@ export function getCheckoutConfig(
         : product.source.type === "telegram-premium"
           ? "telegram_premium"
           : "game_topup";
-  const supported = orderType !== "telegram_stars" && orderType !== "telegram_premium";
+  const supported = true;
   const accountFields = (orderType === "telegram_stars" || orderType === "telegram_premium")
     ? [{ key: "telegram_username", label: "Telegram username", type: "text" as const }]
     : fields;
   return {
     orderType,
     supported,
-    message: supported
-      ? null
-      : "Автоматическая покупка временно недоступна: FazerCards не документирует защиту от повторного списания для этого товара.",
+    message: null,
     fields: accountFields,
   };
 }
@@ -370,8 +368,52 @@ export async function resolveCheckoutOffer(
       fulfillmentData: input,
     };
   }
-  if (product.source.type === "telegram-stars" || product.source.type === "telegram-premium") {
-    throw new Error("OFFER_UNAVAILABLE_IDEMPOTENCY");
+  if (product.source.type === "telegram-stars") {
+    if (checkoutData.recipient_confirmed !== "true") throw new Error("ORDER_RECIPIENT_NOT_CONFIRMED");
+    const username = z.string().trim().min(1).max(255).parse(checkoutData.telegram_username);
+    const quantity = Number(/^stars-(\d+)$/.exec(offerId)?.[1]);
+    const quote = await fetchFazerCards("/api/v2/telegram/stars", telegramStarsSchema);
+    if (!Number.isInteger(quantity) || quantity < quote.min_amount || quantity > quote.max_amount) return null;
+    return {
+      productSlug,
+      productName: product.title,
+      nominalLabel: `${quantity} Stars`,
+      supplierProductId: "telegram_stars",
+      supplierOfferId: offerId,
+      purchasePriceUsd: multiplyDecimal(quote.price_per_star, quantity),
+      customerPriceRub: calculateCustomerPriceRub(
+        multiplyDecimal(quote.price_per_star, quantity),
+        parseMarkupPercent(process.env.CATALOG_MARKUP_PERCENT),
+        parseUsdToRubRate(process.env.USD_TO_RUB_RATE),
+      ),
+      available: true,
+      orderType: "telegram_stars" as const,
+      fulfillmentData: { telegram_username: username, quantity },
+    };
+  }
+  if (product.source.type === "telegram-premium") {
+    if (checkoutData.recipient_confirmed !== "true") throw new Error("ORDER_RECIPIENT_NOT_CONFIRMED");
+    const username = z.string().trim().min(1).max(255).parse(checkoutData.telegram_username);
+    const months = Number(/^premium-(3|6|12)-months$/.exec(offerId)?.[1]) as 3 | 6 | 12;
+    const quote = await fetchFazerCards("/api/v2/telegram/premium", telegramPremiumSchema);
+    const plan = quote.plans.find((item) => item.months === months);
+    if (!plan) return null;
+    return {
+      productSlug,
+      productName: product.title,
+      nominalLabel: `${months} ${months === 3 ? "месяца" : "месяцев"}`,
+      supplierProductId: "telegram_premium",
+      supplierOfferId: offerId,
+      purchasePriceUsd: plan.price_usd,
+      customerPriceRub: calculateCustomerPriceRub(
+        plan.price_usd,
+        parseMarkupPercent(process.env.CATALOG_MARKUP_PERCENT),
+        parseUsdToRubRate(process.env.USD_TO_RUB_RATE),
+      ),
+      available: true,
+      orderType: "telegram_premium" as const,
+      fulfillmentData: { telegram_username: username, months },
+    };
   }
 
   const categoryId = product.source.categoryId;

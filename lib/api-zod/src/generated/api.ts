@@ -213,6 +213,7 @@ export const GetOrderStatusResponse = zod.object({
     "email_sent",
     "payment_failed",
     "supplier_failed",
+    "manual_review",
     "email_failed",
     "failed",
     "cancelled",

@@ -17,6 +17,7 @@ const labels: Record<PublicOrderStatus["status"], string> = {
   email_sent: "Товар отправлен на email",
   payment_failed: "Не удалось подтвердить платёж",
   supplier_failed: "Поставщик не выполнил заказ",
+  manual_review: "Заказ проверяется специалистом",
   email_failed: "Повторяем отправку письма…",
   failed: "Не удалось выполнить заказ",
   cancelled: "Платёж отменён",
@@ -49,7 +50,7 @@ export default function OrderReturnPage() {
           setDialogOpen(true);
           void markNotificationViewed(publicId, token);
         }
-        if (!["email_sent", "payment_failed", "supplier_failed", "failed", "cancelled", "refunded"].includes(next.status)) {
+        if (!["email_sent", "payment_failed", "supplier_failed", "manual_review", "failed", "cancelled", "refunded"].includes(next.status)) {
           timer = window.setTimeout(poll, 3_000);
         }
       } catch (cause) {
