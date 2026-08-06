@@ -12,12 +12,20 @@ export type OrderStatus =
   | "cancelled"
   | "refunded";
 
+export type OrderType =
+  | "gift_card"
+  | "steam_topup"
+  | "telegram_stars"
+  | "telegram_premium"
+  | "game_topup";
+
 export type OrderRecord = {
   id: string;
   publicId: string;
   checkoutKey: string;
   accessTokenHash: string;
   productSlug: string;
+  orderType: OrderType;
   supplierProductId: string;
   supplierOfferId: string;
   productName: string;
@@ -30,6 +38,7 @@ export type OrderRecord = {
   supplierOrderId: string | null;
   supplierIdempotencyKey: string;
   deliveryCodeEncrypted: string | null;
+  fulfillmentDataEncrypted: string | null;
   paymentConfirmedAt: Date | null;
   supplierPurchasedAt: Date | null;
   emailSentAt: Date | null;

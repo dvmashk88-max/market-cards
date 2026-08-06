@@ -1,22 +1,26 @@
 import { z } from "zod";
-import { resolveGiftCardCheckoutOffer } from "../integrations/fazercards/storefront";
+import { checkoutDataSchema, resolveCheckoutOffer } from "../integrations/fazercards/storefront";
 import { getAlfaTerminalOrderStatus, isAlfaPaymentSuccessful } from "./alfa";
 import {
   createPublicId,
   decryptDeliveryCode,
+  decryptOrderData,
   deriveAccessToken,
   encryptDeliveryCode,
+  encryptOrderData,
   hashAccessToken,
   maskEmail,
   verifyAccessToken,
 } from "./security";
 import type { OrderRecord, OrderRepository, OrderStatus } from "./types";
+import type { SupplierPurchase } from "./supplier";
 
 export const createOrderInputSchema = z.object({
   productSlug: z.string().min(1).max(100),
   variantId: z.string().min(1).max(255),
   email: z.string().trim().email().max(254),
   checkoutKey: z.string().uuid(),
+  checkoutData: checkoutDataSchema,
 });
 
 type AlfaStatus = {
@@ -45,11 +49,7 @@ type SupplierResult = {
 };
 
 type SupplierClient = {
-  purchaseGiftCard(input: {
-    categoryId: string;
-    cardId: string;
-    idempotencyKey: string;
-  }): Promise<SupplierResult>;
+  purchase(input: SupplierPurchase): Promise<SupplierResult>;
   status(orderId: string): Promise<SupplierResult>;
 };
 
@@ -61,6 +61,12 @@ type EmailSender = {
     nominalLabel: string;
     code: string;
   }): Promise<unknown>;
+  sendFulfillment(input: {
+    publicId: string;
+    email: string;
+    productName: string;
+    nominalLabel: string;
+  }): Promise<unknown>;
 };
 
 type SafeLogger = {
@@ -69,7 +75,7 @@ type SafeLogger = {
   error(fields: Record<string, unknown>, message: string): void;
 };
 
-type OfferResolver = typeof resolveGiftCardCheckoutOffer;
+type OfferResolver = typeof resolveCheckoutOffer;
 
 const noopLogger: SafeLogger = {
   info() {},
@@ -128,7 +134,7 @@ export function createOrderService(deps: {
   purchasesEnabled?: () => boolean;
   logger?: SafeLogger;
 }) {
-  const resolveOffer = deps.resolveOffer ?? resolveGiftCardCheckoutOffer;
+  const resolveOffer = deps.resolveOffer ?? resolveCheckoutOffer;
   const now = deps.now ?? (() => new Date());
   const purchasesEnabled = deps.purchasesEnabled
     ?? (() => process.env.ENABLE_FAZER_GIFTCARD_ORDERS === "true");
@@ -142,16 +148,25 @@ export function createOrderService(deps: {
   }
 
   async function sendEmail(order: OrderRecord) {
-    if (!order.deliveryCodeEncrypted) throw new Error("DELIVERY_CODE_MISSING");
+    if (!order.deliveryCodeEncrypted) throw new Error("DELIVERY_RESULT_MISSING");
     log.info({ event: "order_email_started", publicId: order.publicId, status: order.status }, "Order email started");
     try {
-      await deps.email.sendGiftCard({
-        publicId: order.publicId,
-        email: order.email,
-        productName: order.productName,
-        nominalLabel: order.nominalLabel,
-        code: decryptDeliveryCode(order.deliveryCodeEncrypted),
-      });
+      if (order.orderType === "gift_card") {
+        await deps.email.sendGiftCard({
+          publicId: order.publicId,
+          email: order.email,
+          productName: order.productName,
+          nominalLabel: order.nominalLabel,
+          code: decryptDeliveryCode(order.deliveryCodeEncrypted),
+        });
+      } else {
+        await deps.email.sendFulfillment({
+          publicId: order.publicId,
+          email: order.email,
+          productName: order.productName,
+          nominalLabel: order.nominalLabel,
+        });
+      }
     } catch (error) {
       throw new RetryableOrderError(
         "email_failed",
@@ -184,7 +199,7 @@ export function createOrderService(deps: {
     if (result.status === "processing") {
       return deps.repository.saveSupplierProcessing(order.id, result.orderId);
     }
-    if (!result.code) {
+    if (order.orderType === "gift_card" && !result.code) {
       throw new RetryableOrderError(
         "supplier_processing",
         "supplier_failed",
@@ -194,7 +209,7 @@ export function createOrderService(deps: {
     return deps.repository.saveFulfilled(
       order.id,
       result.orderId,
-      encryptDeliveryCode(result.code),
+      encryptDeliveryCode(result.code ?? "ACCOUNT_FULFILLED"),
     );
   }
 
@@ -290,11 +305,18 @@ export function createOrderService(deps: {
             { event: "order_supplier_started", publicId: order.publicId, status: order.status },
             "Supplier purchase started",
           );
-          supplierResult = await deps.supplier.purchaseGiftCard({
+          if (order.orderType === "telegram_stars" || order.orderType === "telegram_premium") {
+            throw new Error("SUPPLIER_IDEMPOTENCY_UNAVAILABLE");
+          }
+          if (!order.fulfillmentDataEncrypted) throw new Error("FULFILLMENT_DATA_MISSING");
+          const data = JSON.parse(decryptOrderData(order.fulfillmentDataEncrypted)) as Record<string, unknown>;
+          supplierResult = await deps.supplier.purchase({
+            orderType: order.orderType,
             categoryId: order.supplierProductId,
-            cardId: order.supplierOfferId,
+            offerId: order.supplierOfferId,
+            data,
             idempotencyKey: order.supplierIdempotencyKey,
-          });
+          } as SupplierPurchase);
         }
       } catch (error) {
         throw new RetryableOrderError(
@@ -333,7 +355,7 @@ export function createOrderService(deps: {
           paymentUrl: existing.alfaPaymentUrl,
         };
       }
-      const offer = await resolveOffer(input.productSlug, input.variantId);
+      const offer = await resolveOffer(input.productSlug, input.variantId, input.checkoutData);
       if (!offer) throw new Error("OFFER_NOT_FOUND");
       if (!offer.available) throw new Error("OFFER_UNAVAILABLE");
       const publicId = createPublicId();
@@ -342,6 +364,7 @@ export function createOrderService(deps: {
         checkoutKey: input.checkoutKey,
         accessTokenHash: hashAccessToken(accessToken),
         productSlug: offer.productSlug,
+        orderType: offer.orderType,
         supplierProductId: offer.supplierProductId,
         supplierOfferId: offer.supplierOfferId,
         productName: offer.productName,
@@ -349,6 +372,7 @@ export function createOrderService(deps: {
         email: input.email.toLowerCase(),
         customerPriceRub: offer.customerPriceRub,
         supplierIdempotencyKey: `market-cards:${publicId}`,
+        fulfillmentDataEncrypted: encryptOrderData(JSON.stringify(offer.fulfillmentData)),
       });
       try {
         const payment = await deps.alfa.register({
@@ -432,13 +456,22 @@ export function createOrderService(deps: {
       if (!order.deliveryCodeEncrypted || !["fulfilled", "email_failed", "email_sent"].includes(order.status)) {
         throw new Error("ORDER_NOT_FULFILLED");
       }
-      await deps.email.sendGiftCard({
-        publicId: order.publicId,
-        email: order.email,
-        productName: order.productName,
-        nominalLabel: order.nominalLabel,
-        code: decryptDeliveryCode(order.deliveryCodeEncrypted),
-      });
+      if (order.orderType === "gift_card") {
+        await deps.email.sendGiftCard({
+          publicId: order.publicId,
+          email: order.email,
+          productName: order.productName,
+          nominalLabel: order.nominalLabel,
+          code: decryptDeliveryCode(order.deliveryCodeEncrypted),
+        });
+      } else {
+        await deps.email.sendFulfillment({
+          publicId: order.publicId,
+          email: order.email,
+          productName: order.productName,
+          nominalLabel: order.nominalLabel,
+        });
+      }
       await deps.repository.markEmailSent(order.id);
     },
   };

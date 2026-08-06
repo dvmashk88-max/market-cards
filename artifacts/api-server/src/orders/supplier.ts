@@ -16,6 +16,11 @@ export type SupplierResult = {
   code: string | null;
 };
 
+export type SupplierPurchase =
+  | { orderType: "gift_card"; categoryId: string; offerId: string; data: Record<string, never>; idempotencyKey: string }
+  | { orderType: "steam_topup"; categoryId: string; offerId: string; data: { steamLogin: string; currency: "USD" | "RUB" | "UAH" | "KZT"; amount: string }; idempotencyKey: string }
+  | { orderType: "game_topup"; categoryId: string; offerId: string; data: { fields: Record<string, string> }; idempotencyKey: string };
+
 function normalize(payload: z.infer<typeof responseSchema>): SupplierResult {
   const order = payload.order;
   const orderId = order.order_id ?? order.orderId ?? order.id;
@@ -52,28 +57,48 @@ async function request(
 }
 
 export function createSupplierClient(fetchImpl: typeof fetch = fetch) {
+  async function purchase(input: SupplierPurchase) {
+    if (process.env.ENABLE_FAZER_GIFTCARD_ORDERS !== "true") {
+      throw new Error("SUPPLIER_PURCHASE_DISABLED");
+    }
+    if (input.orderType === "gift_card") {
+      return request("/api/v2/giftcards/order", {
+        method: "POST",
+        headers: { "Idempotency-Key": input.idempotencyKey },
+        body: JSON.stringify({ category_id: input.categoryId, card_id: input.offerId, quantity: 1 }),
+      }, fetchImpl);
+    }
+    if (input.orderType === "steam_topup") {
+      return request("/api/v2/steam-topup/order", {
+        method: "POST",
+        headers: { "Idempotency-Key": input.idempotencyKey },
+        body: JSON.stringify(input.data),
+      }, fetchImpl);
+    }
+    return request("/api/v2/topups/order", {
+      method: "POST",
+      headers: { "Idempotency-Key": input.idempotencyKey },
+      body: JSON.stringify({
+        category_id: input.categoryId,
+        offer_id: input.offerId,
+        fields: input.data.fields,
+      }),
+    }, fetchImpl);
+  }
   return {
+    purchase,
     async purchaseGiftCard(input: {
       categoryId: string;
       cardId: string;
       idempotencyKey: string;
     }) {
-      if (process.env.ENABLE_FAZER_GIFTCARD_ORDERS !== "true") {
-        throw new Error("SUPPLIER_PURCHASE_DISABLED");
-      }
-      return request(
-        "/api/v2/giftcards/order",
-        {
-          method: "POST",
-          headers: { "Idempotency-Key": input.idempotencyKey },
-          body: JSON.stringify({
-            category_id: input.categoryId,
-            card_id: input.cardId,
-            quantity: 1,
-          }),
-        },
-        fetchImpl,
-      );
+      return purchase({
+        orderType: "gift_card",
+        categoryId: input.categoryId,
+        offerId: input.cardId,
+        data: {},
+        idempotencyKey: input.idempotencyKey,
+      });
     },
     status(orderId: string) {
       return request(

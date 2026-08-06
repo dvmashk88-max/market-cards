@@ -13,6 +13,7 @@ import {
   parseUsdToRubRate,
 } from "./pricing";
 import { getSteamFormConfig } from "./steam";
+import { quoteSteamTopUp, steamQuoteInputSchema } from "./steam";
 
 const pricedOfferSchema = z.object({
   name: z.string().min(1),
@@ -34,6 +35,11 @@ const giftCardSchema = z.object({
 const topUpSchema = z.object({
   ok: z.literal(true),
   offers: z.array(pricedOfferSchema.extend({ offer_id: z.string().min(1) })),
+  fields: z.array(z.object({
+    key: z.string().min(1),
+    label: z.string().min(1),
+    type: z.string().min(1),
+  })).default([]),
 });
 
 const telegramStarsSchema = z.object({
@@ -69,6 +75,12 @@ export type StorefrontProduct = Omit<CuratedProduct, "source" | "order"> & {
   available: boolean;
   offers: StorefrontOffer[];
   steamForm: ReturnType<typeof getSteamFormConfig> | null;
+  checkout: {
+    orderType: "gift_card" | "steam_topup" | "telegram_stars" | "telegram_premium" | "game_topup";
+    supported: boolean;
+    message: string | null;
+    fields: Array<{ key: string; label: string; type: "text" }>;
+  };
 };
 
 const cache = new AsyncTtlCache();
@@ -86,7 +98,9 @@ function publicProduct(
   region: string | null,
   offers: StorefrontOffer[],
   steamForm: ReturnType<typeof getSteamFormConfig> | null = null,
+  fields: Array<{ key: string; label: string; type: "text" }> = [],
 ): StorefrontProduct {
+  const checkout = getCheckoutConfig(product, fields);
   return {
     slug: product.slug,
     categoryId: product.categoryId,
@@ -97,6 +111,34 @@ function publicProduct(
     available: steamForm !== null || offers.some((offer) => offer.available),
     offers,
     steamForm,
+    checkout,
+  };
+}
+
+export function getCheckoutConfig(
+  product: CuratedProduct,
+  fields: Array<{ key: string; label: string; type: "text" }> = [],
+): StorefrontProduct["checkout"] {
+  const orderType = product.source.type === "gift-card"
+    ? "gift_card"
+    : product.source.type === "steam-top-up"
+      ? "steam_topup"
+      : product.source.type === "telegram-stars"
+        ? "telegram_stars"
+        : product.source.type === "telegram-premium"
+          ? "telegram_premium"
+          : "game_topup";
+  const supported = orderType !== "telegram_stars" && orderType !== "telegram_premium";
+  const accountFields = (orderType === "telegram_stars" || orderType === "telegram_premium")
+    ? [{ key: "telegram_username", label: "Telegram username", type: "text" as const }]
+    : fields;
+  return {
+    orderType,
+    supported,
+    message: supported
+      ? null
+      : "Автоматическая покупка временно недоступна: FazerCards не документирует защиту от повторного списания для этого товара.",
+    fields: accountFields,
   };
 }
 
@@ -105,6 +147,12 @@ function multiplyDecimal(value: string, multiplier: number): string {
   const scale = 10n ** BigInt(fraction.length);
   const units = BigInt(`${whole}${fraction}`) * BigInt(multiplier);
   return `${units / scale}.${(units % scale).toString().padStart(fraction.length, "0")}`;
+}
+
+function isCuratedTopUpOffer(categoryId: string, name: string): boolean {
+  return categoryId === "pubg_mobile_auto"
+    ? /^\d+\s+UC$/i.test(name)
+    : categoryId === "free_fire_cis" && /^\d+\s+Diamonds$/i.test(name);
 }
 
 async function loadProduct(
@@ -151,9 +199,7 @@ async function loadProduct(
       topUpSchema,
     );
     const relevant = detail.offers.filter((offer) =>
-      source.categoryId === "pubg_mobile_auto"
-        ? /^\d+\s+UC$/i.test(offer.name)
-        : /^\d+\s+Diamonds$/i.test(offer.name),
+      isCuratedTopUpOffer(source.categoryId, offer.name),
     );
     return publicProduct(
       product,
@@ -177,6 +223,8 @@ async function loadProduct(
           stock: null,
         };
       }),
+      null,
+      (detail.fields ?? []).map((field) => ({ ...field, type: "text" as const })),
     );
   }
 
@@ -290,6 +338,71 @@ export async function resolveGiftCardCheckoutOffer(
       usdToRubRate,
     ),
     available: offer.stock > 0,
+  };
+}
+
+export const checkoutDataSchema = z.record(z.string(), z.string().trim().max(255)).default({});
+
+export async function resolveCheckoutOffer(
+  productSlug: string,
+  offerId: string,
+  checkoutData: Record<string, string>,
+) {
+  const product = findCuratedProduct(productSlug);
+  if (!product) return null;
+  if (product.source.type === "gift-card") {
+    const offer = await resolveGiftCardCheckoutOffer(productSlug, offerId);
+    return offer && { ...offer, orderType: "gift_card" as const, fulfillmentData: {} };
+  }
+  if (product.source.type === "steam-top-up") {
+    const input = steamQuoteInputSchema.parse(checkoutData);
+    const quote = await quoteSteamTopUp(input);
+    return {
+      productSlug,
+      productName: product.title,
+      nominalLabel: `${quote.amount} ${quote.currency}`,
+      supplierProductId: "steam-top-up",
+      supplierOfferId: `${quote.currency}:${quote.amount}`,
+      purchasePriceUsd: "",
+      customerPriceRub: quote.priceRub,
+      available: true,
+      orderType: "steam_topup" as const,
+      fulfillmentData: input,
+    };
+  }
+  if (product.source.type === "telegram-stars" || product.source.type === "telegram-premium") {
+    throw new Error("OFFER_UNAVAILABLE_IDEMPOTENCY");
+  }
+
+  const categoryId = product.source.categoryId;
+  const query = new URLSearchParams({ category_id: categoryId, include_ui: "1" });
+  const detail = await fetchFazerCards(`/api/v2/topups/offers?${query}`, topUpSchema);
+  const offer = detail.offers.find((item) =>
+    item.offer_id === offerId
+    && isCuratedTopUpOffer(categoryId, item.name),
+  );
+  if (!offer) return null;
+  const requiredKeys = (detail.fields ?? []).map((field) => field.key);
+  const fields = Object.fromEntries(requiredKeys.map((key) => {
+    const value = checkoutData[key]?.trim();
+    if (!value) throw new Error("ORDER_FIELDS_INVALID");
+    return [key, value];
+  }));
+  return {
+    productSlug,
+    productName: product.title,
+    nominalLabel: offer.name,
+    supplierProductId: categoryId,
+    supplierOfferId: offer.offer_id,
+    purchasePriceUsd: offer.price_usd,
+    customerPriceRub: calculateCustomerPriceRub(
+      offer.price_usd,
+      parseMarkupPercent(process.env.CATALOG_MARKUP_PERCENT),
+      parseUsdToRubRate(process.env.USD_TO_RUB_RATE),
+    ),
+    available: true,
+    orderType: "game_topup" as const,
+    fulfillmentData: { fields },
   };
 }
 

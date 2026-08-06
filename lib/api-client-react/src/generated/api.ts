@@ -17,7 +17,10 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CreateOrderInput,
+  CreateOrderResult,
   HealthStatus,
+  PublicOrder,
   SteamQuoteInput,
   StorefrontCategories200,
   StorefrontProduct200,
@@ -449,3 +452,333 @@ export function useStorefrontProduct<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getCreateOrderUrl = () => {
+  return `/api/orders`;
+};
+
+/**
+ * @summary Create an idempotent checkout using a server-verified price
+ */
+export const createOrder = async (
+  createOrderInput: CreateOrderInput,
+  options?: RequestInit,
+): Promise<CreateOrderResult> => {
+  return customFetch<CreateOrderResult>(getCreateOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrderInput),
+  });
+};
+
+export const getCreateOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrder>>,
+    TError,
+    { data: BodyType<CreateOrderInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrder>>,
+  TError,
+  { data: BodyType<CreateOrderInput> },
+  TContext
+> => {
+  const mutationKey = ["createOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrder>>,
+    { data: BodyType<CreateOrderInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrder>>
+>;
+export type CreateOrderMutationBody = BodyType<CreateOrderInput>;
+export type CreateOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an idempotent checkout using a server-verified price
+ */
+export const useCreateOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrder>>,
+    TError,
+    { data: BodyType<CreateOrderInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrder>>,
+  TError,
+  { data: BodyType<CreateOrderInput> },
+  TContext
+> => {
+  return useMutation(getCreateOrderMutationOptions(options));
+};
+
+export const getGetOrderStatusUrl = (publicId: string) => {
+  return `/api/orders/${publicId}`;
+};
+
+/**
+ * @summary Independently verify payment and return a protected order status
+ */
+export const getOrderStatus = async (
+  publicId: string,
+  options?: RequestInit,
+): Promise<PublicOrder> => {
+  return customFetch<PublicOrder>(getGetOrderStatusUrl(publicId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOrderStatusQueryKey = (publicId: string) => {
+  return [`/api/orders/${publicId}`] as const;
+};
+
+export const getGetOrderStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrderStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  publicId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOrderStatusQueryKey(publicId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrderStatus>>> = ({
+    signal,
+  }) => getOrderStatus(publicId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: publicId !== null && publicId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOrderStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOrderStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOrderStatus>>
+>;
+export type GetOrderStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Independently verify payment and return a protected order status
+ */
+
+export function useGetOrderStatus<
+  TData = Awaited<ReturnType<typeof getOrderStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  publicId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrderStatusQueryOptions(publicId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getMarkOrderNotificationViewedUrl = (publicId: string) => {
+  return `/api/orders/${publicId}/notification-viewed`;
+};
+
+export const markOrderNotificationViewed = async (
+  publicId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getMarkOrderNotificationViewedUrl(publicId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkOrderNotificationViewedMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markOrderNotificationViewed>>,
+    TError,
+    { publicId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markOrderNotificationViewed>>,
+  TError,
+  { publicId: string },
+  TContext
+> => {
+  const mutationKey = ["markOrderNotificationViewed"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markOrderNotificationViewed>>,
+    { publicId: string }
+  > = (props) => {
+    const { publicId } = props ?? {};
+
+    return markOrderNotificationViewed(publicId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkOrderNotificationViewedMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markOrderNotificationViewed>>
+>;
+
+export type MarkOrderNotificationViewedMutationError = ErrorType<unknown>;
+
+export const useMarkOrderNotificationViewed = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markOrderNotificationViewed>>,
+    TError,
+    { publicId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markOrderNotificationViewed>>,
+  TError,
+  { publicId: string },
+  TContext
+> => {
+  return useMutation(getMarkOrderNotificationViewedMutationOptions(options));
+};
+
+export const getRetryOrderEmailUrl = (publicId: string) => {
+  return `/api/orders/${publicId}/email/retry`;
+};
+
+export const retryOrderEmail = async (
+  publicId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRetryOrderEmailUrl(publicId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRetryOrderEmailMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof retryOrderEmail>>,
+    TError,
+    { publicId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof retryOrderEmail>>,
+  TError,
+  { publicId: string },
+  TContext
+> => {
+  const mutationKey = ["retryOrderEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof retryOrderEmail>>,
+    { publicId: string }
+  > = (props) => {
+    const { publicId } = props ?? {};
+
+    return retryOrderEmail(publicId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RetryOrderEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retryOrderEmail>>
+>;
+
+export type RetryOrderEmailMutationError = ErrorType<unknown>;
+
+export const useRetryOrderEmail = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof retryOrderEmail>>,
+    TError,
+    { publicId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof retryOrderEmail>>,
+  TError,
+  { publicId: string },
+  TContext
+> => {
+  return useMutation(getRetryOrderEmailMutationOptions(options));
+};

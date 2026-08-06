@@ -9,6 +9,50 @@ export interface HealthStatus {
   status: string;
 }
 
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderStatus = {
+  created: "created",
+  payment_pending: "payment_pending",
+  payment_confirmed: "payment_confirmed",
+  supplier_processing: "supplier_processing",
+  fulfilled: "fulfilled",
+  email_sent: "email_sent",
+  payment_failed: "payment_failed",
+  supplier_failed: "supplier_failed",
+  email_failed: "email_failed",
+  failed: "failed",
+  cancelled: "cancelled",
+  refunded: "refunded",
+} as const;
+
+export type CreateOrderInputCheckoutData = { [key: string]: string };
+
+export interface CreateOrderInput {
+  productSlug: string;
+  variantId: string;
+  email: string;
+  checkoutKey: string;
+  checkoutData?: CreateOrderInputCheckoutData;
+}
+
+export interface CreateOrderResult {
+  publicId: string;
+  accessToken: string;
+  paymentUrl: string;
+}
+
+export interface PublicOrder {
+  publicId: string;
+  status: OrderStatus;
+  productName: string;
+  nominalLabel: string;
+  emailMasked: string;
+  notificationEligible: boolean;
+  /** @nullable */
+  errorMessage: string | null;
+}
+
 export type StorefrontCategoryId =
   (typeof StorefrontCategoryId)[keyof typeof StorefrontCategoryId];
 
@@ -66,6 +110,37 @@ export interface SteamFormConfig {
   maximumAmount: null;
 }
 
+export type OrderType = (typeof OrderType)[keyof typeof OrderType];
+
+export const OrderType = {
+  gift_card: "gift_card",
+  steam_topup: "steam_topup",
+  telegram_stars: "telegram_stars",
+  telegram_premium: "telegram_premium",
+  game_topup: "game_topup",
+} as const;
+
+export type CheckoutFieldType =
+  (typeof CheckoutFieldType)[keyof typeof CheckoutFieldType];
+
+export const CheckoutFieldType = {
+  text: "text",
+} as const;
+
+export interface CheckoutField {
+  key: string;
+  label: string;
+  type: CheckoutFieldType;
+}
+
+export interface CheckoutConfig {
+  orderType: OrderType;
+  supported: boolean;
+  /** @nullable */
+  message: string | null;
+  fields: CheckoutField[];
+}
+
 export interface StorefrontProduct {
   slug: string;
   categoryId: StorefrontCategoryId;
@@ -77,6 +152,7 @@ export interface StorefrontProduct {
   available: boolean;
   offers: StorefrontOffer[];
   steamForm: SteamFormConfig | null;
+  checkout: CheckoutConfig;
 }
 
 export interface SteamQuoteInput {

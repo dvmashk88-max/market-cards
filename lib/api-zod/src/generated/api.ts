@@ -70,6 +70,24 @@ export const StorefrontProductsResponse = zod.object({
         }),
         zod.null(),
       ]),
+      checkout: zod.object({
+        orderType: zod.enum([
+          "gift_card",
+          "steam_topup",
+          "telegram_stars",
+          "telegram_premium",
+          "game_topup",
+        ]),
+        supported: zod.boolean(),
+        message: zod.string().nullable(),
+        fields: zod.array(
+          zod.object({
+            key: zod.string(),
+            label: zod.string(),
+            type: zod.enum(["text"]),
+          }),
+        ),
+      }),
     }),
   ),
 });
@@ -139,5 +157,82 @@ export const StorefrontProductResponse = zod.object({
       }),
       zod.null(),
     ]),
+    checkout: zod.object({
+      orderType: zod.enum([
+        "gift_card",
+        "steam_topup",
+        "telegram_stars",
+        "telegram_premium",
+        "game_topup",
+      ]),
+      supported: zod.boolean(),
+      message: zod.string().nullable(),
+      fields: zod.array(
+        zod.object({
+          key: zod.string(),
+          label: zod.string(),
+          type: zod.enum(["text"]),
+        }),
+      ),
+    }),
   }),
 });
+
+/**
+ * @summary Create an idempotent checkout using a server-verified price
+ */
+export const CreateOrderBody = zod.object({
+  productSlug: zod.string(),
+  variantId: zod.string(),
+  email: zod.string().email(),
+  checkoutKey: zod.string().uuid(),
+  checkoutData: zod.record(zod.string(), zod.string()).optional(),
+});
+
+export const CreateOrderResponse = zod.object({
+  publicId: zod.string(),
+  accessToken: zod.string(),
+  paymentUrl: zod.string().url(),
+});
+
+/**
+ * @summary Independently verify payment and return a protected order status
+ */
+export const GetOrderStatusParams = zod.object({
+  publicId: zod.coerce.string(),
+});
+
+export const GetOrderStatusResponse = zod.object({
+  publicId: zod.string(),
+  status: zod.enum([
+    "created",
+    "payment_pending",
+    "payment_confirmed",
+    "supplier_processing",
+    "fulfilled",
+    "email_sent",
+    "payment_failed",
+    "supplier_failed",
+    "email_failed",
+    "failed",
+    "cancelled",
+    "refunded",
+  ]),
+  productName: zod.string(),
+  nominalLabel: zod.string(),
+  emailMasked: zod.string(),
+  notificationEligible: zod.boolean(),
+  errorMessage: zod.string().nullable(),
+});
+
+export const MarkOrderNotificationViewedParams = zod.object({
+  publicId: zod.coerce.string(),
+});
+
+export const MarkOrderNotificationViewedResponse = zod.void();
+
+export const RetryOrderEmailParams = zod.object({
+  publicId: zod.coerce.string(),
+});
+
+export const RetryOrderEmailResponse = zod.void();

@@ -110,7 +110,7 @@ paths:
     post:
       operationId: createOrder
       tags: [orders]
-      summary: Create an idempotent Gift Card checkout using a server-verified price
+      summary: Create an idempotent checkout using a server-verified price
       requestBody:
         required: true
         content:
@@ -183,7 +183,7 @@ components:
           type: string
     OrderStatus:
       type: string
-      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, failed, cancelled, refunded]
+      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, payment_failed, supplier_failed, email_failed, failed, cancelled, refunded]
     CreateOrderInput:
       type: object
       additionalProperties: false
@@ -199,6 +199,10 @@ components:
         checkoutKey:
           type: string
           format: uuid
+        checkoutData:
+          type: object
+          additionalProperties:
+            type: string
     CreateOrderResult:
       type: object
       required: [publicId, accessToken, paymentUrl]
@@ -281,6 +285,7 @@ components:
           available,
           offers,
           steamForm,
+          checkout,
         ]
       properties:
         slug:
@@ -305,6 +310,36 @@ components:
           oneOf:
             - $ref: "#/components/schemas/SteamFormConfig"
             - type: "null"
+        checkout:
+          $ref: "#/components/schemas/CheckoutConfig"
+    OrderType:
+      type: string
+      enum: [gift_card, steam_topup, telegram_stars, telegram_premium, game_topup]
+    CheckoutField:
+      type: object
+      required: [key, label, type]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text]
+    CheckoutConfig:
+      type: object
+      required: [orderType, supported, message, fields]
+      properties:
+        orderType:
+          $ref: "#/components/schemas/OrderType"
+        supported:
+          type: boolean
+        message:
+          type: [string, "null"]
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckoutField"
     SteamCurrency:
       type: string
       enum: [USD, RUB, UAH, KZT]

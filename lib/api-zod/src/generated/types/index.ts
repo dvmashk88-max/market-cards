@@ -6,7 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./checkoutConfig";
+export * from "./checkoutField";
+export * from "./checkoutFieldType";
+export * from "./createOrderInput";
+export * from "./createOrderInputCheckoutData";
+export * from "./createOrderResult";
 export * from "./healthStatus";
+export * from "./orderStatus";
+export * from "./orderType";
+export * from "./publicOrder";
 export * from "./steamAmountRule";
 export * from "./steamCurrency";
 export * from "./steamFormConfig";

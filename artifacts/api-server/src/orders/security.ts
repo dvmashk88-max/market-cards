@@ -40,16 +40,16 @@ function encryptionKey(): Buffer {
   return key;
 }
 
-export function encryptDeliveryCode(code: string): string {
+export function encryptOrderData(value: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(code, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   return [iv, cipher.getAuthTag(), encrypted]
     .map((part) => part.toString("base64url"))
     .join(".");
 }
 
-export function decryptDeliveryCode(payload: string): string {
+export function decryptOrderData(payload: string): string {
   const [ivRaw, tagRaw, encryptedRaw] = payload.split(".");
   if (!ivRaw || !tagRaw || !encryptedRaw) throw new Error("INVALID_ENCRYPTED_CODE");
   const decipher = createDecipheriv(
@@ -63,6 +63,9 @@ export function decryptDeliveryCode(payload: string): string {
     decipher.final(),
   ]).toString("utf8");
 }
+
+export const encryptDeliveryCode = encryptOrderData;
+export const decryptDeliveryCode = decryptOrderData;
 
 export function maskEmail(email: string): string {
   const [local = "", domain = ""] = email.split("@");

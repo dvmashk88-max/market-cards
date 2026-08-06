@@ -19,6 +19,7 @@ export function createOrder(input: {
   variantId: string;
   email: string;
   checkoutKey: string;
+  checkoutData?: Record<string, string>;
 }) {
   return fetch("/api/orders", {
     method: "POST",

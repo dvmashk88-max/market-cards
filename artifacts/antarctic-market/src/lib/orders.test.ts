@@ -24,8 +24,10 @@ test("checkout sends identifiers and email but never a frontend price", async ()
       variantId: "card-10",
       email: "buyer@example.com",
       checkoutKey: "11111111-1111-4111-8111-111111111111",
+      checkoutData: {},
     });
     assert.deepEqual(Object.keys(body).sort(), [
+      "checkoutData",
       "checkoutKey",
       "email",
       "productSlug",

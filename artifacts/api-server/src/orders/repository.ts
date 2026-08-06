@@ -8,6 +8,7 @@ function map(row: Record<string, unknown>): OrderRecord {
     checkoutKey: String(row.checkout_key),
     accessTokenHash: String(row.access_token_hash),
     productSlug: String(row.product_slug),
+    orderType: (row.order_type ?? "gift_card") as OrderRecord["orderType"],
     supplierProductId: String(row.supplier_product_id),
     supplierOfferId: String(row.supplier_offer_id),
     productName: String(row.product_name),
@@ -20,6 +21,7 @@ function map(row: Record<string, unknown>): OrderRecord {
     supplierOrderId: row.supplier_order_id ? String(row.supplier_order_id) : null,
     supplierIdempotencyKey: String(row.supplier_idempotency_key),
     deliveryCodeEncrypted: row.delivery_code_encrypted ? String(row.delivery_code_encrypted) : null,
+    fulfillmentDataEncrypted: row.fulfillment_data_encrypted ? String(row.fulfillment_data_encrypted) : null,
     paymentConfirmedAt: row.payment_confirmed_at as Date | null,
     supplierPurchasedAt: row.supplier_purchased_at as Date | null,
     emailSentAt: row.email_sent_at as Date | null,
@@ -46,15 +48,16 @@ export const orderRepository: OrderRepository = {
   async create(input: NewOrder) {
     const result = await one(
       `INSERT INTO orders (
-        public_id, checkout_key, access_token_hash, product_slug,
+        public_id, checkout_key, access_token_hash, product_slug, order_type,
         supplier_product_id, supplier_offer_id, product_name, nominal_label,
-        email, customer_price_rub, supplier_idempotency_key
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        email, customer_price_rub, supplier_idempotency_key, fulfillment_data_encrypted
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [
         input.publicId,
         input.checkoutKey,
         input.accessTokenHash,
         input.productSlug,
+        input.orderType,
         input.supplierProductId,
         input.supplierOfferId,
         input.productName,
@@ -62,6 +65,7 @@ export const orderRepository: OrderRepository = {
         input.email,
         input.customerPriceRub,
         input.supplierIdempotencyKey,
+        input.fulfillmentDataEncrypted,
       ],
     );
     if (!result) throw new Error("ORDER_CREATE_FAILED");

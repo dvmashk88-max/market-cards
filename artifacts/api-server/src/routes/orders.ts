@@ -18,6 +18,9 @@ export const orderService = createOrderService({
     sendGiftCard(input) {
       return createEmailSender().sendGiftCard(input);
     },
+    sendFulfillment(input) {
+      return createEmailSender().sendFulfillment(input);
+    },
   },
   logger,
 });
@@ -42,6 +45,10 @@ function safeError(error: unknown) {
   if (code === "ORDER_NOT_FOUND") return { status: 404, body: { error: "order_not_found", message: "Заказ не найден" } };
   if (code === "OFFER_NOT_FOUND") return { status: 400, body: { error: "offer_not_found", message: "Этот вариант недоступен для покупки" } };
   if (code === "OFFER_UNAVAILABLE") return { status: 409, body: { error: "offer_unavailable", message: "Товар закончился" } };
+  if (code === "OFFER_UNAVAILABLE_IDEMPOTENCY") return { status: 409, body: { error: "offer_unavailable", message: "Автоматическая покупка этого товара пока недоступна" } };
+  if (code === "ORDER_FIELDS_INVALID") return { status: 400, body: { error: "invalid_order_fields", message: "Проверьте данные аккаунта" } };
+  if (error instanceof Error && error.name === "SteamLoginUnavailableError") return { status: 422, body: { error: "steam_account_unavailable", message: "Этот аккаунт Steam сейчас нельзя пополнить" } };
+  if (error instanceof Error && error.name === "SteamAmountValidationError") return { status: 400, body: { error: "invalid_steam_amount", message: "Проверьте сумму пополнения Steam" } };
   if (code === "SUPPLIER_PURCHASE_DISABLED") return { status: 503, body: { error: "supplier_disabled", message: "Покупка поставщика временно отключена" } };
   return { status: 502, body: { error: "order_processing_failed", message: "Не удалось обработать заказ" } };
 }

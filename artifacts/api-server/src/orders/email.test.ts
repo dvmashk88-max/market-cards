@@ -13,6 +13,26 @@ test("SMTP uses TLS rules from the confirmed Mail.ru contract", () => {
   assert.equal(options.requireTLS, true);
 });
 
+test("account fulfillment email confirms completion without exposing account data", async () => {
+  process.env.SMTP_FROM = "shop@example.com";
+  let message: Record<string, unknown> | null = null;
+  const transporter = {
+    async sendMail(input: Record<string, unknown>) {
+      message = input;
+      return { messageId: "mock-message" };
+    },
+  } as unknown as Transporter;
+  await createEmailSender(transporter).sendFulfillment({
+    publicId: "mc_topup",
+    email: "buyer@example.com",
+    productName: "PUBG",
+    nominalLabel: "60 UC",
+  });
+  const text = String((message as unknown as Record<string, unknown>).text);
+  assert.match(text, /выполнено напрямую/i);
+  assert.doesNotMatch(text, /player_id|123456/);
+});
+
 test("SMTP mock receives the real code without supplier or purchase prices", async () => {
   process.env.SMTP_FROM = "shop@example.com";
   let message: Record<string, unknown> | null = null;

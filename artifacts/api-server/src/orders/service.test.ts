@@ -22,6 +22,7 @@ class MemoryRepository implements OrderRepository {
       alfaPaymentUrl: null,
       supplierOrderId: null,
       deliveryCodeEncrypted: null,
+      fulfillmentDataEncrypted: input.fulfillmentDataEncrypted,
       paymentConfirmedAt: null,
       supplierPurchasedAt: null,
       emailSentAt: null,
@@ -126,7 +127,13 @@ class MemoryRepository implements OrderRepository {
   }
 }
 
-function harness({ purchasesEnabled = true } = {}) {
+function harness({
+  purchasesEnabled = true,
+  orderType = "gift_card",
+}: {
+  purchasesEnabled?: boolean;
+  orderType?: "gift_card" | "steam_topup" | "game_topup";
+} = {}) {
   const repository = new MemoryRepository();
   let alfaStatus: {
     ErrorCode?: string | number;
@@ -137,6 +144,7 @@ function harness({ purchasesEnabled = true } = {}) {
   } = { ErrorCode: "0", OrderStatus: 0 };
   let supplierCalls = 0;
   const supplierKeys: string[] = [];
+  const supplierTypes: string[] = [];
   let supplierFailureOnce = false;
   let supplierResult: {
     orderId: string;
@@ -158,9 +166,10 @@ function harness({ purchasesEnabled = true } = {}) {
       async status() { return alfaStatus; },
     },
     supplier: {
-      async purchaseGiftCard(request) {
+      async purchase(request) {
         supplierCalls += 1;
         supplierKeys.push(request.idempotencyKey);
+        supplierTypes.push(request.orderType);
         if (supplierFailureOnce) {
           supplierFailureOnce = false;
           throw new Error("temporary supplier failure");
@@ -171,6 +180,13 @@ function harness({ purchasesEnabled = true } = {}) {
     },
     email: {
       async sendGiftCard() {
+        emailCalls += 1;
+        if (emailFailureOnce) {
+          emailFailureOnce = false;
+          throw new Error("temporary SMTP failure");
+        }
+      },
+      async sendFulfillment() {
         emailCalls += 1;
         if (emailFailureOnce) {
           emailFailureOnce = false;
@@ -188,7 +204,13 @@ function harness({ purchasesEnabled = true } = {}) {
         purchasePriceUsd: "0.22",
         customerPriceRub: 30,
         available: true,
-      };
+        orderType,
+        fulfillmentData: orderType === "steam_topup"
+          ? { steamLogin: "test_login", currency: "RUB" as const, amount: "500" }
+          : orderType === "game_topup"
+            ? { fields: { player_id: "123456" } }
+            : {},
+      } as Awaited<ReturnType<typeof import("../integrations/fazercards/storefront").resolveCheckoutOffer>>;
     },
     now: () => new Date("2026-01-01T00:09:00Z"),
     purchasesEnabled: () => purchasesEnabled,
@@ -201,6 +223,7 @@ function harness({ purchasesEnabled = true } = {}) {
     failSupplierOnce: () => { supplierFailureOnce = true; },
     failEmailOnce: () => { emailFailureOnce = true; },
     supplierKeys: () => supplierKeys,
+    supplierTypes: () => supplierTypes,
     counts: () => ({ supplierCalls, emailCalls, registeredAmount, paymentRegistrationCalls }),
   };
 }
@@ -364,3 +387,23 @@ test("SMTP retry never performs a second supplier purchase", async () => {
   assert.equal(h.counts().supplierCalls, 1);
   assert.equal(h.counts().emailCalls, 2);
 });
+
+for (const orderType of ["steam_topup", "game_topup"] as const) {
+  test(`${orderType} completes through payment, supplier and account-fulfillment email`, async () => {
+    const h = harness({ orderType });
+    h.setSupplierResult({ orderId: `ord-${orderType}`, status: "completed", code: null });
+    const created = await h.service.create({ ...input, checkoutKey: crypto.randomUUID(), checkoutData: {} });
+    h.setAlfaStatus({
+      ErrorCode: 0,
+      OrderStatus: 2,
+      OrderNumber: created.publicId,
+      Amount: 3000,
+      currency: "810",
+    });
+    await h.service.processNext("worker-direct");
+    assert.equal((await h.service.status(created.publicId, created.accessToken)).status, "email_sent");
+    assert.deepEqual(h.supplierTypes(), [orderType]);
+    assert.equal(h.counts().supplierCalls, 1);
+    assert.equal(h.counts().emailCalls, 1);
+  });
+}

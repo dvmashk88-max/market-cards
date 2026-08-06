@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckoutConfig } from "./checkoutConfig";
 import type { SteamFormConfig } from "./steamFormConfig";
 import type { StorefrontCategoryId } from "./storefrontCategoryId";
 import type { StorefrontOffer } from "./storefrontOffer";
@@ -20,4 +21,5 @@ export interface StorefrontProduct {
   available: boolean;
   offers: StorefrontOffer[];
   steamForm: SteamFormConfig | null;
+  checkout: CheckoutConfig;
 }

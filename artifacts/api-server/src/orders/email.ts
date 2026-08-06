@@ -58,5 +58,25 @@ export function createEmailSender(
       const html = `<h1>Ваш заказ выполнен</h1><p>Номер заказа: <strong>${escapeHtml(input.publicId)}</strong></p><p>Товар: <strong>${escapeHtml(input.productName)}</strong></p><p>Номинал: <strong>${escapeHtml(input.nominalLabel)}</strong></p><p>Цифровой код:</p><div style="padding:14px;background:#f3f4f6;font-size:20px;font-weight:700">${escapeHtml(input.code)}</div><p><strong>Никому не передавайте цифровой код.</strong></p><p>Поддержка: ${support}</p>`;
       return transporter.sendMail({ from, to: input.email, subject, text, html });
     },
+    async sendFulfillment(input: {
+      publicId: string;
+      email: string;
+      productName: string;
+      nominalLabel: string;
+    }) {
+      const support = "d.v.mash@mail.ru";
+      const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const subject = `Маркет цифровых товаров — заказ ${input.publicId}`;
+      const text = [
+        "Ваш заказ выполнен",
+        `Номер заказа: ${input.publicId}`,
+        `Товар: ${input.productName}`,
+        `Вариант: ${input.nominalLabel}`,
+        "Пополнение выполнено напрямую на указанный аккаунт.",
+        `Поддержка: ${support}`,
+      ].join("\n");
+      const html = `<h1>Ваш заказ выполнен</h1><p>Номер заказа: <strong>${escapeHtml(input.publicId)}</strong></p><p>Товар: <strong>${escapeHtml(input.productName)}</strong></p><p>Вариант: <strong>${escapeHtml(input.nominalLabel)}</strong></p><p>Пополнение выполнено напрямую на указанный аккаунт.</p><p>Поддержка: ${support}</p>`;
+      return transporter.sendMail({ from, to: input.email, subject, text, html });
+    },
   };
 }

@@ -174,7 +174,9 @@ const CATEGORY_LABELS: Record<StorefrontCategory["id"], string> = {
   telegram: "Telegram",
 };
 
-function SteamQuoteForm({ product, onQuoteChange }: { product: Product; onQuoteChange: (quote: SteamQuote | null) => void }) {
+type CheckoutSelection = { quote: SteamQuote; data: Record<string, string> };
+
+function SteamQuoteForm({ product, onQuoteChange }: { product: Product; onQuoteChange: (selection: CheckoutSelection | null) => void }) {
   const currencies = product.steamForm?.currencies ?? [];
   const [steamLogin, setSteamLogin] = useState("");
   const [currency, setCurrency] = useState<SteamCurrency>(currencies[0] ?? "RUB");
@@ -194,7 +196,7 @@ function SteamQuoteForm({ product, onQuoteChange }: { product: Product; onQuoteC
     try {
       const response = await fetchSteamQuote({ steamLogin, currency, amount });
       setQuote(response.quote);
-      onQuoteChange(response.quote);
+      onQuoteChange({ quote: response.quote, data: { steamLogin: steamLogin.trim(), currency, amount: response.quote.amount } });
     } catch {
       setError("Не удалось рассчитать цену. Проверьте логин Steam и сумму.");
     } finally {
@@ -271,20 +273,24 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
   onEmail: (s: string) => void;
   checkoutPending: boolean;
   checkoutError: string;
-  onCheckout: () => void;
+  onCheckout: (checkoutData: Record<string, string>) => void;
 }) {
-  const [steamQuote, setSteamQuote] = useState<SteamQuote | null>(null);
+  const [steamSelection, setSteamSelection] = useState<CheckoutSelection | null>(null);
+  const [checkoutData, setCheckoutData] = useState<Record<string, string>>({});
   const selectedOffer = prod?.offers.find((offer) => offer.id === selectedOfferId) ?? null;
   const availableOffers = sortedAvailableOffers(prod?.offers ?? []);
   const shownOffers = visibleOffers(prod?.offers ?? [], nominalsExpanded);
-  const totalPriceRub = prod?.slug === "steam-top-up" ? steamQuote?.priceRub : selectedOffer?.priceRub;
+  const totalPriceRub = prod?.slug === "steam-top-up" ? steamSelection?.quote.priceRub : selectedOffer?.priceRub;
   const ProductIcon = prod?.Icon;
-  const checkoutSupported = prod?.cat === "apple";
+  const checkoutSupported = Boolean(prod?.checkout.supported);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const checkoutReady = checkoutSupported && Boolean(selectedOffer?.available) && emailValid;
+  const requiredFieldsReady = (prod?.checkout.fields ?? []).every((field) => checkoutData[field.key]?.trim());
+  const selectionReady = prod?.slug === "steam-top-up" ? Boolean(steamSelection) : Boolean(selectedOffer?.available);
+  const checkoutReady = checkoutSupported && selectionReady && requiredFieldsReady && emailValid;
 
   useEffect(() => {
-    setSteamQuote(null);
+    setSteamSelection(null);
+    setCheckoutData({});
   }, [prod?.slug]);
 
   return (
@@ -317,7 +323,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
             <div>
               <p className="mb-2 text-[10px] uppercase tracking-wider text-white/35">{prod?.slug === "steam-top-up" ? "Данные пополнения" : "Номинал или вариант"}</p>
               {prod?.slug === "steam-top-up" ? (
-                <SteamQuoteForm key={prod.slug} product={prod} onQuoteChange={setSteamQuote} />
+                <SteamQuoteForm key={prod.slug} product={prod} onQuoteChange={setSteamSelection} />
               ) : shownOffers.length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -355,6 +361,25 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
               ) : (
                 <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/45">Сейчас недоступно</p>
               )}
+              {prod && prod.slug !== "steam-top-up" && prod.checkout.fields.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {prod.checkout.fields.map((field) => (
+                    <div key={field.key}>
+                      <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/40" htmlFor={`checkout-${field.key}`}>{field.label}</label>
+                      <input
+                        id={`checkout-${field.key}`}
+                        value={checkoutData[field.key] ?? ""}
+                        onChange={(event) => setCheckoutData((current) => ({ ...current, [field.key]: event.target.value }))}
+                        placeholder={field.label}
+                        className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-purple-400/60"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {prod?.checkout.message && (
+                <p className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-3 py-3 text-xs leading-relaxed text-amber-100/80">{prod.checkout.message}</p>
+              )}
             </div>
           </div>
 
@@ -374,7 +399,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-200 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]" />
               <div>
                 <p className="font-extrabold text-amber-50">После оплаты</p>
-                <p className="mt-2">Код будет отправлен на указанный e-mail. Обычно письмо приходит в течение <strong className="font-semibold text-amber-50">3–5 минут</strong>.</p>
+                <p className="mt-2">{prod?.checkout.orderType === "gift_card" ? "Код будет отправлен" : "Подтверждение выполнения будет отправлено"} на указанный e-mail. Обычно письмо приходит в течение <strong className="font-semibold text-amber-50">3–5 минут</strong>.</p>
                 <p className="mt-2">Если письма нет — проверьте папки: „<strong className="font-semibold text-amber-50">Входящие</strong>“, „<strong className="font-semibold text-amber-50">Спам</strong>“ и „<strong className="font-semibold text-amber-50">Рассылки</strong>“.</p>
                 <p className="mt-2 font-medium text-amber-100/90">После возвращения в магазин появится подтверждение выполнения заказа.</p>
               </div>
@@ -391,7 +416,7 @@ function OrderPanel({ prod, selectedOfferId, onOffer, nominalsExpanded, onToggle
             <button
               type="button"
               disabled={!checkoutReady || checkoutPending}
-              onClick={onCheckout}
+              onClick={() => onCheckout(prod?.slug === "steam-top-up" ? (steamSelection?.data ?? {}) : checkoutData)}
               className="mt-4 w-full rounded-xl border border-purple-400/40 bg-gradient-to-r from-purple-600/80 to-cyan-600/70 px-4 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-purple-400/20 disabled:bg-none disabled:bg-purple-500/15 disabled:text-white/45"
             >
               {checkoutPending
@@ -466,16 +491,19 @@ export default function HomePage() {
     dispatchNominalView({ type: "select_product", productSlug: slug });
   };
 
-  const checkout = async () => {
-    if (!selected || !selectedOfferId || checkoutPending) return;
+  const checkout = async (checkoutData: Record<string, string>) => {
+    if (!selected || checkoutPending) return;
+    const variantId = selected.slug === "steam-top-up" ? "steam-topup" : selectedOfferId;
+    if (!variantId) return;
     setCheckoutPending(true);
     setCheckoutError("");
     try {
       const order = await createOrder({
         productSlug: selected.slug,
-        variantId: selectedOfferId,
+        variantId,
         email: email.trim(),
         checkoutKey: crypto.randomUUID(),
+        checkoutData,
       });
       sessionStorage.setItem(`market-cards:order:${order.publicId}`, order.accessToken);
       window.location.assign(order.paymentUrl);
@@ -704,7 +732,7 @@ export default function HomePage() {
                 onEmail={setEmail}
                 checkoutPending={checkoutPending}
                 checkoutError={checkoutError}
-                onCheckout={() => void checkout()}
+                onCheckout={(data) => void checkout(data)}
               />
             </div>
           </div>
