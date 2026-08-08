@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createOrder, notificationAutoHideMs } from "./orders";
+import {
+  createOrder,
+  fetchOrderDelivery,
+  isOrderDeliveryReady,
+  notificationAutoHideMs,
+} from "./orders";
 
 test("completed order card automatically hides after ten minutes", () => {
   assert.equal(notificationAutoHideMs, 600_000);
@@ -36,4 +41,34 @@ test("checkout sends identifiers and email but never a frontend price", async ()
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("delivery request uses the protected endpoint and bearer token", async () => {
+  const originalFetch = globalThis.fetch;
+  let url = "";
+  let authorization = "";
+  globalThis.fetch = (async (input, init) => {
+    url = String(input);
+    authorization = new Headers(init?.headers).get("authorization") ?? "";
+    return new Response(JSON.stringify({ deliveryType: "code", code: "REAL-CODE" }));
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await fetchOrderDelivery("mc_test/order", "secret-token"), {
+      deliveryType: "code",
+      code: "REAL-CODE",
+    });
+    assert.equal(url, "/api/orders/mc_test%2Forder/delivery");
+    assert.equal(authorization, "Bearer secret-token");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("delivery is requested only for fulfilled states", () => {
+  assert.equal(isOrderDeliveryReady("payment_pending"), false);
+  assert.equal(isOrderDeliveryReady("payment_confirmed"), false);
+  assert.equal(isOrderDeliveryReady("supplier_processing"), false);
+  assert.equal(isOrderDeliveryReady("fulfilled"), true);
+  assert.equal(isOrderDeliveryReady("email_failed"), true);
+  assert.equal(isOrderDeliveryReady("email_sent"), true);
 });

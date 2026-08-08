@@ -1,6 +1,81 @@
 # PROJECT STATUS
 
-Дата обновления: 5 августа 2026 года.
+Дата обновления: 8 августа 2026 года.
+
+## Google Search Console, SEO и завершение заказа — 8 августа 2026 года
+
+### Google Search Console
+
+- Право собственности на сайт подтверждено через HTML verification-файл `google7f276c4349db7e40.html`.
+- Verification-файл добавлен в public-директорию production frontend и остаётся доступен по корневому URL сайта.
+- Настроены `robots.txt` и `sitemap.xml`.
+- Sitemap отправлен в Google Search Console.
+
+### SEO
+
+- `robots.txt` разрешает индексацию публичного сайта, содержит ссылку на sitemap и исключает технический маршрут `/order/return`.
+- `sitemap.xml` содержит только канонические публичные страницы: `/`, `/oferta`, `/privacy`, `/personal-data`, `/terms`, `/refund`.
+
+### Payment flow
+
+- Сохранён существующий flow: Альфа-Банк → `/order/return` → защищённый polling статуса заказа → автономный backend worker → FazerCards fulfillment.
+- Регистрация и проверка платежа Альфа-Банка, `returnUrl`, создание заказа, worker и логика FazerCards не изменялись.
+
+### Завершение заказа
+
+- Реализован защищённый `GET /api/orders/:publicId/delivery` с существующей Bearer access token авторизацией.
+- Digital code выдаётся только после перехода заказа в `fulfilled`, `email_failed` или `email_sent` и расшифровывается только для защищённого HTTP-ответа.
+- Код не добавлен в существующий status API; status API возвращает только безопасный `deliveryType`.
+- Ответ delivery endpoint защищён заголовком `Cache-Control: no-store`.
+- Для Steam, Telegram и игровых пополнений используется `deliveryType: account_fulfillment` без возврата фиктивного кода.
+
+### Frontend
+
+- Улучшена существующая страница `/order/return` без добавления нового маршрута и без изменения payment return flow.
+- Добавлены отдельные состояния ожидания оплаты, подтверждённой оплаты, получения товара, завершения и ошибок.
+- Страница показывает номер заказа, товар, номинал и статус выдачи.
+- Для Gift Card добавлена карточка результата с digital code, кнопкой «Скопировать код», подтверждением копирования и предупреждением не передавать код другим людям.
+- Для прямых пополнений показывается подтверждение зачисления товара на указанный аккаунт без поля кода.
+
+### Testing
+
+- Backend tests: `55/55` passed.
+- Frontend tests: `12/12` passed.
+- Полный workspace typecheck прошёл успешно.
+- Production build frontend и backend прошёл успешно.
+
+## Актуальное production-состояние — 5 августа 2026 года
+
+### Checkout и выполнение заказов
+
+- Alfa-Банк подключён и используется для production checkout.
+- FazerCards fulfillment работает после подтверждения оплаты.
+- Автономный backend worker продолжает обработку оплаченного заказа независимо от открытого браузера покупателя.
+- SMTP-доставка цифрового результата на email покупателя работает после успешного выполнения заказа.
+
+### Поддерживаемые товары
+
+- Apple Gift Card.
+- Steam Top-up.
+- PUBG.
+- Free Fire.
+- Telegram Stars.
+- Telegram Premium.
+
+### Карточка завершённого заказа `OrderCompletionCard`
+
+- Карточка автоматически появляется на странице возврата после полной успешной обработки заказа и отправки цифрового результата покупателю.
+- Условие показа на frontend: заказ имеет финальный статус `email_sent`, а защищённый order status API вернул `notificationEligible: true`.
+- Email берётся из поля `emailMasked` конкретного заказа, полученного через защищённый `GET /api/orders/:publicId`; email поддержки или статический email администратора вместо него не используются.
+- При открытии карточки запускается клиентский таймер на 10 минут (`600000` мс). После его завершения карточка скрывается. Серверная проверка свежести и фиксация просмотра не позволяют показывать старое завершение заказа спустя несколько дней.
+- Добавлены кнопка «Вернуться в магазин» и раскрываемая кнопка «Поддержка» с каналами Telegram, MAX и email.
+
+### Последняя production-публикация
+
+- Commit: `fc9fa82a6f5af5528e0d69253f2a0b40edb9f363` (`Add completed order card`).
+- Railway deployment: `d4ca28c8-fada-464b-8c32-c2d8d66c41c1`.
+- Статус deployment: `SUCCESS`.
+- Публичный URL: <https://market-cards-production.up.railway.app>.
 
 ## Production checkout — 5 августа 2026 года
 

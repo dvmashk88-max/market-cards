@@ -20,6 +20,7 @@ import type {
   CreateOrderInput,
   CreateOrderResult,
   HealthStatus,
+  OrderDelivery,
   PublicOrder,
   SteamQuoteInput,
   StorefrontCategories200,
@@ -619,6 +620,94 @@ export function useGetOrderStatus<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetOrderStatusQueryOptions(publicId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getGetOrderDeliveryUrl = (publicId: string) => {
+  return `/api/orders/${publicId}/delivery`;
+};
+
+/**
+ * @summary Get the protected delivery result for a fulfilled order
+ */
+export const getOrderDelivery = async (
+  publicId: string,
+  options?: RequestInit,
+): Promise<OrderDelivery> => {
+  return customFetch<OrderDelivery>(getGetOrderDeliveryUrl(publicId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOrderDeliveryQueryKey = (publicId: string) => {
+  return [`/api/orders/${publicId}/delivery`] as const;
+};
+
+export const getGetOrderDeliveryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrderDelivery>>,
+  TError = ErrorType<void>,
+>(
+  publicId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderDelivery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOrderDeliveryQueryKey(publicId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOrderDelivery>>
+  > = ({ signal }) => getOrderDelivery(publicId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: publicId !== null && publicId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOrderDelivery>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOrderDeliveryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOrderDelivery>>
+>;
+export type GetOrderDeliveryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the protected delivery result for a fulfilled order
+ */
+
+export function useGetOrderDelivery<
+  TData = Awaited<ReturnType<typeof getOrderDelivery>>,
+  TError = ErrorType<void>,
+>(
+  publicId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrderDelivery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrderDeliveryQueryOptions(publicId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

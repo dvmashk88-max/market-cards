@@ -27,6 +27,13 @@ export const OrderStatus = {
   refunded: "refunded",
 } as const;
 
+export type DeliveryType = (typeof DeliveryType)[keyof typeof DeliveryType];
+
+export const DeliveryType = {
+  code: "code",
+  account_fulfillment: "account_fulfillment",
+} as const;
+
 export type CreateOrderInputCheckoutData = { [key: string]: string };
 
 export interface CreateOrderInput {
@@ -48,11 +55,21 @@ export interface PublicOrder {
   status: OrderStatus;
   productName: string;
   nominalLabel: string;
+  deliveryType: DeliveryType;
   emailMasked: string;
   notificationEligible: boolean;
   /** @nullable */
   errorMessage: string | null;
 }
+
+export type OrderDelivery =
+  | {
+      deliveryType: "code";
+      code: string;
+    }
+  | {
+      deliveryType: "account_fulfillment";
+    };
 
 export type StorefrontCategoryId =
   (typeof StorefrontCategoryId)[keyof typeof StorefrontCategoryId];

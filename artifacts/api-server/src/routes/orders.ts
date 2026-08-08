@@ -43,6 +43,7 @@ function safeError(error: unknown) {
   }
   const code = error instanceof Error ? error.message : "ORDER_ERROR";
   if (code === "ORDER_NOT_FOUND") return { status: 404, body: { error: "order_not_found", message: "Заказ не найден" } };
+  if (code === "ORDER_NOT_FULFILLED") return { status: 409, body: { error: "order_not_fulfilled", message: "Товар ещё не готов" } };
   if (code === "OFFER_NOT_FOUND") return { status: 400, body: { error: "offer_not_found", message: "Этот вариант недоступен для покупки" } };
   if (code === "OFFER_UNAVAILABLE") return { status: 409, body: { error: "offer_unavailable", message: "Товар закончился" } };
   if (code === "OFFER_UNAVAILABLE_IDEMPOTENCY") return { status: 409, body: { error: "offer_unavailable", message: "Автоматическая покупка этого товара пока недоступна" } };
@@ -71,6 +72,16 @@ router.post("/orders", createLimit, async (req, res) => {
 router.get("/orders/:publicId", statusLimit, async (req, res) => {
   try {
     res.json(await orderService.status(routeParam(req.params.publicId), token(req)));
+  } catch (error) {
+    const result = safeError(error);
+    res.status(result.status).json(result.body);
+  }
+});
+
+router.get("/orders/:publicId/delivery", statusLimit, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    res.json(await orderService.delivery(routeParam(req.params.publicId), token(req)));
   } catch (error) {
     const result = safeError(error);
     res.status(result.status).json(result.body);

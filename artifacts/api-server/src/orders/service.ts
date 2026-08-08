@@ -113,6 +113,10 @@ function isTelegramOrder(order: OrderRecord): boolean {
   return order.orderType === "telegram_stars" || order.orderType === "telegram_premium";
 }
 
+function deliveryType(order: OrderRecord): "code" | "account_fulfillment" {
+  return order.orderType === "gift_card" ? "code" : "account_fulfillment";
+}
+
 function publicOrder(order: OrderRecord, now: Date) {
   const notificationEligible = order.status === "email_sent"
     && !order.notificationViewedAt
@@ -123,6 +127,7 @@ function publicOrder(order: OrderRecord, now: Date) {
     status: order.status,
     productName: order.productName,
     nominalLabel: order.nominalLabel,
+    deliveryType: deliveryType(order),
     emailMasked: maskEmail(order.email),
     notificationEligible,
     errorMessage: order.errorMessageSafe,
@@ -444,6 +449,21 @@ export function createOrderService(deps: {
     async status(publicId: string, token: string) {
       const order = authorize(await deps.repository.findByPublicId(publicId), token);
       return publicOrder(order, now());
+    },
+
+    async delivery(publicId: string, token: string) {
+      const order = authorize(await deps.repository.findByPublicId(publicId), token);
+      if (!["fulfilled", "email_failed", "email_sent"].includes(order.status)) {
+        throw new Error("ORDER_NOT_FULFILLED");
+      }
+      if (order.orderType !== "gift_card") {
+        return { deliveryType: "account_fulfillment" as const };
+      }
+      if (!order.deliveryCodeEncrypted) throw new Error("DELIVERY_RESULT_MISSING");
+      return {
+        deliveryType: "code" as const,
+        code: decryptDeliveryCode(order.deliveryCodeEncrypted),
+      };
     },
 
     async processNext(workerId: string, leaseMs = 120_000): Promise<boolean> {

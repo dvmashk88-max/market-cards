@@ -221,10 +221,28 @@ export const GetOrderStatusResponse = zod.object({
   ]),
   productName: zod.string(),
   nominalLabel: zod.string(),
+  deliveryType: zod.enum(["code", "account_fulfillment"]),
   emailMasked: zod.string(),
   notificationEligible: zod.boolean(),
   errorMessage: zod.string().nullable(),
 });
+
+/**
+ * @summary Get the protected delivery result for a fulfilled order
+ */
+export const GetOrderDeliveryParams = zod.object({
+  publicId: zod.coerce.string(),
+});
+
+export const GetOrderDeliveryResponse = zod.union([
+  zod.object({
+    deliveryType: zod.enum(["code"]),
+    code: zod.string(),
+  }),
+  zod.object({
+    deliveryType: zod.enum(["account_fulfillment"]),
+  }),
+]);
 
 export const MarkOrderNotificationViewedParams = zod.object({
   publicId: zod.coerce.string(),

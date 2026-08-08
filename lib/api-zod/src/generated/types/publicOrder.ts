@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryType } from "./deliveryType";
 import type { OrderStatus } from "./orderStatus";
 
 export interface PublicOrder {
@@ -12,6 +13,7 @@ export interface PublicOrder {
   status: OrderStatus;
   productName: string;
   nominalLabel: string;
+  deliveryType: DeliveryType;
   emailMasked: string;
   notificationEligible: boolean;
   /** @nullable */

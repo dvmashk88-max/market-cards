@@ -3,10 +3,15 @@ export type PublicOrderStatus = {
   status: "created" | "payment_pending" | "payment_confirmed" | "supplier_processing" | "fulfilled" | "email_sent" | "payment_failed" | "supplier_failed" | "manual_review" | "email_failed" | "failed" | "cancelled" | "refunded";
   productName: string;
   nominalLabel: string;
+  deliveryType: "code" | "account_fulfillment";
   emailMasked: string;
   notificationEligible: boolean;
   errorMessage: string | null;
 };
+
+export type OrderDelivery =
+  | { deliveryType: "code"; code: string }
+  | { deliveryType: "account_fulfillment" };
 
 async function json<T>(response: Response): Promise<T> {
   const body = await response.json();
@@ -37,6 +42,21 @@ export function fetchOrder(
     headers: { Authorization: `Bearer ${token}` },
     signal,
   }).then((response) => json<PublicOrderStatus>(response));
+}
+
+export function fetchOrderDelivery(
+  publicId: string,
+  token: string,
+  signal: AbortSignal = AbortSignal.timeout(12_000),
+) {
+  return fetch(`/api/orders/${encodeURIComponent(publicId)}/delivery`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  }).then((response) => json<OrderDelivery>(response));
+}
+
+export function isOrderDeliveryReady(status: PublicOrderStatus["status"]): boolean {
+  return ["fulfilled", "email_failed", "email_sent"].includes(status);
 }
 
 export function markNotificationViewed(publicId: string, token: string) {

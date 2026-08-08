@@ -360,6 +360,46 @@ test("access token is required and notification expires after ten minutes", asyn
   assert.equal((await h.service.status(created.publicId, created.accessToken)).notificationEligible, false);
 });
 
+test("delivery requires the order access token and a fulfilled order", async () => {
+  const h = harness();
+  const created = await h.service.create(input);
+  await assert.rejects(h.service.delivery(created.publicId, ""), /ORDER_NOT_FOUND/);
+  await assert.rejects(h.service.delivery(created.publicId, "wrong"), /ORDER_NOT_FOUND/);
+  await assert.rejects(
+    h.service.delivery(created.publicId, created.accessToken),
+    /ORDER_NOT_FULFILLED/,
+  );
+});
+
+test("gift card delivery returns the decrypted supplier code", async () => {
+  const h = harness();
+  const created = await h.service.create(input);
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  await h.service.processNext("worker-delivery-code");
+  const status = await h.service.status(created.publicId, created.accessToken);
+  assert.equal(status.deliveryType, "code");
+  assert.equal("code" in status, false);
+  assert.deepEqual(await h.service.delivery(created.publicId, created.accessToken), {
+    deliveryType: "code",
+    code: "REAL-CODE",
+  });
+});
+
+test("account fulfillment delivery never returns the internal placeholder", async () => {
+  const h = harness({ orderType: "steam_topup" });
+  h.setSupplierResult({ orderId: "ord-steam", status: "completed", code: null });
+  const created = await h.service.create({ ...input, checkoutData: {} });
+  h.setAlfaStatus({ ErrorCode: 0, OrderStatus: 2, OrderNumber: created.publicId, Amount: 3000, currency: "810" });
+  await h.service.processNext("worker-delivery-account");
+  assert.equal(
+    (await h.service.status(created.publicId, created.accessToken)).deliveryType,
+    "account_fulfillment",
+  );
+  const delivery = await h.service.delivery(created.publicId, created.accessToken);
+  assert.deepEqual(delivery, { deliveryType: "account_fulfillment" });
+  assert.equal("code" in delivery, false);
+});
+
 test("email retry never performs another supplier purchase", async () => {
   const h = harness();
   const created = await h.service.create(input);
