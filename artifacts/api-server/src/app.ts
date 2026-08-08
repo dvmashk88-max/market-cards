@@ -40,10 +40,7 @@ app.use("/api", (_req, res) => {
 });
 
 if (process.env.NODE_ENV === "production") {
-  const publicDir = path.resolve(
-    import.meta.dirname,
-    "../../antarctic-market/dist/public",
-  );
+  const publicDir = path.resolve(import.meta.dirname, "public");
   app.use(express.static(publicDir, { index: false }));
   app.get("/{*path}", (_req, res) => {
     res.sendFile(path.join(publicDir, "index.html"));
