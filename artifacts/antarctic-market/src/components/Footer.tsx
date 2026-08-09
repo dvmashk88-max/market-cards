@@ -16,7 +16,7 @@ export default function Footer() {
               <span className="font-bold text-white tracking-tight">Маркет цифровых товаров</span>
             </div>
             <p className="text-sm mb-5 leading-relaxed" style={{ color:"rgba(255,255,255,0.45)" }}>
-              Официальная площадка продажи лицензионных цифровых товаров на платформе MAX.
+              Самостоятельный интернет-магазин цифровых подарочных карт и пополнений.
             </p>
             <div className="space-y-1 text-xs" style={{ color:"rgba(255,255,255,0.35)" }}>
               <p>ООО «ЧИСТОДОМ-МСК»</p>

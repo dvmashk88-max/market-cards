@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,6 +25,7 @@ import {
 } from "@/lib/nominals";
 import { createOrder } from "@/lib/orders";
 import { isCheckoutReady, isTelegramCheckout } from "@/lib/checkout";
+import { catalogSeoPages } from "@/lib/seoCatalog";
 
 /* ═══════════════════════════════════════════════════════════════════ Data */
 
@@ -478,6 +479,7 @@ export default function HomePage() {
   const [email, setEmail]       = useState("");
   const [checkoutPending, setCheckoutPending] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const deepLinkApplied = useRef(false);
   const [successPreviewOpen, setSuccessPreviewOpen] = useState(() =>
     import.meta.env.DEV
       && typeof window !== "undefined"
@@ -501,6 +503,18 @@ export default function HomePage() {
     if (!selected || selectedOfferId) return;
     setSelectedOfferId(sortedAvailableOffers(selected.offers)[0]?.id ?? null);
   }, [selected, selectedOfferId]);
+
+  useEffect(() => {
+    if (deepLinkApplied.current || products.length === 0) return;
+    deepLinkApplied.current = true;
+    const productSlug = new URLSearchParams(window.location.search).get("product");
+    const linkedProduct = products.find((product) => product.slug === productSlug);
+    if (!linkedProduct) return;
+    setCat(linkedProduct.cat);
+    setSelId(linkedProduct.slug);
+    setSelectedOfferId(sortedAvailableOffers(linkedProduct.offers)[0]?.id ?? null);
+    dispatchNominalView({ type: "select_product", productSlug: linkedProduct.slug });
+  }, [products]);
 
   const pickCat = (c: StorefrontCategory["id"]) => {
     setCat(c);
@@ -560,28 +574,46 @@ export default function HomePage() {
           {/* Hero-local orb */}
           <div aria-hidden="true" style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-56%)", width:"800px", height:"800px", background:"rgba(109,40,217,0.14)", filter:"blur(160px)", borderRadius:"50%", pointerEvents:"none" }} />
 
-          <div className="relative z-10 max-w-5xl mx-auto space-y-7 flex flex-col items-center">
+          <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center space-y-7">
 
             {/* headline */}
             <motion.h1
               initial={{ opacity:0, y:26 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.55, delay:0.08 }}
-              className="font-black tracking-tight leading-[1.05]"
+              className="w-full break-words font-black leading-[1.05] tracking-tight"
               style={{ fontSize:"clamp(2.6rem, 7vw, 5.5rem)", textShadow:"0 0 100px rgba(124,58,237,0.40)" }}
             >
               <span style={{ background:"linear-gradient(90deg,#c084fc,#818cf8,#67e8f9)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
-                Маркет
+                MarketCode
               </span>{" "}
-              <span className="text-white">цифровых товаров</span>
+              <span className="text-white">— магазин цифровых товаров</span>
             </motion.h1>
 
-            {/* sub */}
-            <motion.p
+            {/* product directions */}
+            <motion.div
               initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ duration:0.5, delay:0.18 }}
-              className="text-lg max-w-2xl leading-relaxed"
-              style={{ color:"rgba(255,255,255,0.50)" }}
+              className="w-full max-w-4xl space-y-4"
             >
-              Витрина цифровых товаров на платформе MAX: подарочные карты, Steam, Telegram Stars, игровые пополнения и цифровые коды
-            </motion.p>
+              <p className="grid w-full grid-cols-1 justify-items-center gap-2 text-base font-semibold leading-relaxed sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-2.5 sm:text-lg">
+                <span className="rounded-full border border-amber-200/15 bg-amber-200/[0.06] px-3 py-1 text-amber-100">
+                  Apple Gift Card / Apple ID
+                </span>
+                <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-3 py-1 text-cyan-100">
+                  Steam
+                </span>
+                <span className="rounded-full border border-sky-300/15 bg-sky-300/[0.06] px-3 py-1 text-sky-100">
+                  Telegram Stars и Premium
+                </span>
+                <span className="rounded-full border border-violet-300/15 bg-violet-300/[0.06] px-3 py-1 text-violet-100">
+                  PUBG UC
+                </span>
+                <span className="rounded-full border border-fuchsia-300/15 bg-fuchsia-300/[0.06] px-3 py-1 text-fuchsia-100">
+                  Free Fire Diamonds
+                </span>
+              </p>
+              <p className="mx-auto max-w-3xl text-sm leading-relaxed text-white/50 sm:text-base">
+                Apple Gift Card для Турции, США, России и Индии, прямое пополнение Steam и игровые товары с быстрой выдачей после оплаты.
+              </p>
+            </motion.div>
 
             {/* benefit pills */}
             <motion.div
@@ -762,6 +794,30 @@ export default function HomePage() {
                 checkoutError={checkoutError}
                 onCheckout={(data) => void checkout(data)}
               />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="catalog-directions-title" className="px-4 py-14">
+          <div className="mx-auto max-w-6xl rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200/65">MarketCode</p>
+            <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl" id="catalog-directions-title">
+              Цифровые товары по направлениям
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/50">
+              Откройте страницу нужного товара, проверьте описание и актуальные варианты, затем перейдите к оформлению заказа в каталоге.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {catalogSeoPages.map((page) => (
+                <a
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-sm font-bold text-white/70 transition hover:border-purple-300/35 hover:text-white"
+                  href={page.path}
+                  key={page.path}
+                >
+                  {page.shortName}
+                  <ArrowRight className="h-4 w-4 shrink-0 text-cyan-300" />
+                </a>
+              ))}
             </div>
           </div>
         </section>

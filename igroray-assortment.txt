@@ -49,7 +49,7 @@
 - интеграция может быть выполнена по API, webhook или по техническим требованиям площадки.
 
 САЙТ МАГАЗИНА
-https://market-cards-production.up.railway.app
+https://www.marketcode.pro
 
 КОНТАКТНОЕ ЛИЦО
 Дмитрий
