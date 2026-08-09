@@ -15,39 +15,14 @@ import {
   catalogSeoByPath,
   SITE_URL,
 } from "./lib/seoCatalog";
+import { DEFAULT_DESCRIPTION, publicSeoByPath } from "./lib/seoPublic";
 
 const queryClient = new QueryClient();
 
-const DEFAULT_DESCRIPTION = "MarketCode — магазин цифровых товаров: Apple Gift Card, прямое пополнение Steam, Telegram Stars и Premium, UC PUBG и алмазы Free Fire.";
-const PUBLIC_PAGE_SEO: Record<string, { title: string; description: string }> = {
-  "/": {
-    title: "MarketCode — магазин цифровых товаров: Apple, Steam, Telegram",
-    description: DEFAULT_DESCRIPTION,
-  },
-  "/oferta": {
-    title: "Публичная оферта — Маркет цифровых товаров",
-    description: "Публичная оферта интернет-магазина цифровых товаров.",
-  },
-  "/privacy": {
-    title: "Политика конфиденциальности — Маркет цифровых товаров",
-    description: "Политика конфиденциальности интернет-магазина цифровых товаров.",
-  },
-  "/personal-data": {
-    title: "Обработка персональных данных — Маркет цифровых товаров",
-    description: "Согласие на обработку персональных данных интернет-магазином цифровых товаров.",
-  },
-  "/terms": {
-    title: "Условия использования — Маркет цифровых товаров",
-    description: "Условия использования интернет-магазина цифровых товаров.",
-  },
-  "/refund": {
-    title: "Условия возврата — Маркет цифровых товаров",
-    description: "Условия возврата и отмены заказов цифровых товаров.",
-  },
-};
-
 function setMeta(selector: string, content: string) {
-  document.querySelector<HTMLMetaElement>(selector)?.setAttribute("content", content);
+  document
+    .querySelector<HTMLMetaElement>(selector)
+    ?.setAttribute("content", content);
 }
 
 function SeoMetadata() {
@@ -55,7 +30,7 @@ function SeoMetadata() {
 
   useEffect(() => {
     const catalogPage = catalogSeoByPath.get(location);
-    const seo = catalogPage ?? PUBLIC_PAGE_SEO[location];
+    const seo = catalogPage ?? publicSeoByPath.get(location);
     const title = seo?.title ?? "Страница не найдена — Маркет цифровых товаров";
     const description = seo?.description ?? DEFAULT_DESCRIPTION;
 
@@ -67,7 +42,9 @@ function SeoMetadata() {
     setMeta('meta[name="twitter:title"]', title);
     setMeta('meta[name="twitter:description"]', description);
 
-    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    let canonical = document.querySelector<HTMLLinkElement>(
+      'link[rel="canonical"]',
+    );
     if (seo) {
       canonical ??= document.head.appendChild(document.createElement("link"));
       canonical.rel = "canonical";
@@ -83,7 +60,9 @@ function SeoMetadata() {
       const script = document.createElement("script");
       script.id = "page-structured-data";
       script.type = "application/ld+json";
-      script.textContent = JSON.stringify(catalogPageStructuredData(catalogPage));
+      script.textContent = JSON.stringify(
+        catalogPageStructuredData(catalogPage),
+      );
       document.head.appendChild(script);
     }
   }, [location]);
@@ -95,7 +74,9 @@ function NotFoundPage() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#05080f] text-white">
       <h1 className="text-3xl font-bold mb-4">404 - Страница не найдена</h1>
-      <a href="/" className="text-blue-400 hover:underline">Вернуться на главную</a>
+      <a href="/" className="text-blue-400 hover:underline">
+        Вернуться на главную
+      </a>
     </div>
   );
 }

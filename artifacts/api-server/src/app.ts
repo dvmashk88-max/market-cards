@@ -4,7 +4,7 @@ import pinoHttp from "pino-http";
 import path from "node:path";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { getCleanSeoPath, SEO_HTML_PATHS } from "./seoRedirect";
+import { registerProductionFrontend } from "./seoFrontend";
 
 const app: Express = express();
 
@@ -41,17 +41,7 @@ app.use("/api", (_req, res) => {
 });
 
 if (process.env.NODE_ENV === "production") {
-  const publicDir = path.resolve(import.meta.dirname, "public");
-  app.get([...SEO_HTML_PATHS], (req, res) => {
-    const cleanPath = getCleanSeoPath(req.path);
-    const queryStart = req.originalUrl.indexOf("?");
-    const query = queryStart === -1 ? "" : req.originalUrl.slice(queryStart);
-    res.redirect(301, `${cleanPath}${query}`);
-  });
-  app.use(express.static(publicDir, { index: false, extensions: ["html"] }));
-  app.get("/{*path}", (_req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
-  });
+  registerProductionFrontend(app, path.resolve(import.meta.dirname, "public"));
 }
 
 export default app;

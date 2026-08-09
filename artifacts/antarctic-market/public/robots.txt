@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Disallow: /order/return
 
 Sitemap: https://www.marketcode.pro/sitemap.xml

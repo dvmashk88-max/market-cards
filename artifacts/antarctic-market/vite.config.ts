@@ -9,6 +9,7 @@ import {
   catalogSeoPages,
   SITE_URL,
 } from "./src/lib/seoCatalog";
+import { legalSeoPages } from "./src/lib/seoPublic";
 
 const rawPort = process.env.PORT ?? "5173";
 
@@ -22,22 +23,39 @@ const basePath = process.env.BASE_PATH ?? "/";
 const publicOutDir = path.resolve(import.meta.dirname, "dist/public");
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character);
-}
-
-function replaceMetaContent(html: string, pattern: RegExp, content: string): string {
-  return html.replace(pattern, (_match, before: string, after: string) =>
-    `${before}${escapeHtml(content)}${after}`,
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character,
   );
 }
 
-function renderCatalogHtml(source: string, page: (typeof catalogSeoPages)[number]): string {
+function replaceMetaContent(
+  html: string,
+  pattern: RegExp,
+  content: string,
+): string {
+  return html.replace(
+    pattern,
+    (_match, before: string, after: string) =>
+      `${before}${escapeHtml(content)}${after}`,
+  );
+}
+
+type GeneratedSeoPage = {
+  path: string;
+  title: string;
+  description: string;
+  structuredData?: unknown;
+};
+
+function renderSeoHtml(source: string, page: GeneratedSeoPage): string {
   const canonical = `${SITE_URL}${page.path}`;
   let html = source.replace(
     /<title>.*?<\/title>/,
@@ -78,27 +96,41 @@ function renderCatalogHtml(source: string, page: (typeof catalogSeoPages)[number
     /(<meta name="twitter:description" content=")[^"]*(" \/>)/,
     page.description,
   );
-  const structuredData = JSON.stringify(catalogPageStructuredData(page));
+  if (page.structuredData === undefined) return html;
+
+  const structuredData = JSON.stringify(page.structuredData);
   return html.replace(
     "</head>",
     `    <script id="page-structured-data" type="application/ld+json">${structuredData}</script>\n  </head>`,
   );
 }
 
-function catalogHtmlPlugin(): Plugin {
+function seoHtmlPlugin(): Plugin {
   return {
-    name: "marketcode-catalog-html",
+    name: "marketcode-seo-html",
     apply: "build",
     enforce: "post",
     async closeBundle() {
-      const source = await readFile(path.join(publicOutDir, "index.html"), "utf8");
-      await Promise.all(catalogSeoPages.map((page) =>
-        writeFile(
-          path.join(publicOutDir, `${page.path.slice(1)}.html`),
-          renderCatalogHtml(source, page),
-          "utf8",
+      const source = await readFile(
+        path.join(publicOutDir, "index.html"),
+        "utf8",
+      );
+      const generatedPages: GeneratedSeoPage[] = [
+        ...catalogSeoPages.map((page) => ({
+          ...page,
+          structuredData: catalogPageStructuredData(page),
+        })),
+        ...legalSeoPages,
+      ];
+      await Promise.all(
+        generatedPages.map((page) =>
+          writeFile(
+            path.join(publicOutDir, `${page.path.slice(1)}.html`),
+            renderSeoHtml(source, page),
+            "utf8",
+          ),
         ),
-      ));
+      );
     },
   };
 }
@@ -109,7 +141,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
-    catalogHtmlPlugin(),
+    seoHtmlPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
