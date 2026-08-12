@@ -1,12 +1,11 @@
-import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-const rootElement = document.getElementById("root")!;
-rootElement.replaceChildren();
-const root = createRoot(rootElement);
+const rootElement = document.getElementById("root");
 
-flushSync(() => {
-  root.render(<App />);
-});
+if (!rootElement) {
+  throw new Error("Root element not found");
+}
+
+createRoot(rootElement).render(<App />);
