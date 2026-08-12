@@ -26,6 +26,7 @@ import {
 import { createOrder } from "@/lib/orders";
 import { isCheckoutReady, isTelegramCheckout } from "@/lib/checkout";
 import { catalogSeoPages } from "@/lib/seoCatalog";
+import { homeSeoPage } from "@/lib/seoPublic";
 
 /* ═══════════════════════════════════════════════════════════════════ Data */
 
@@ -582,10 +583,10 @@ export default function HomePage() {
               className="w-full break-words font-black leading-[1.05] tracking-tight"
               style={{ fontSize:"clamp(2.6rem, 7vw, 5.5rem)", textShadow:"0 0 100px rgba(124,58,237,0.40)" }}
             >
+              <span className="text-white">Магазин цифровых товаров </span>
               <span style={{ background:"linear-gradient(90deg,#c084fc,#818cf8,#67e8f9)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
                 MarketCode
-              </span>{" "}
-              <span className="text-white">— магазин цифровых товаров</span>
+              </span>
             </motion.h1>
 
             {/* product directions */}
@@ -611,7 +612,7 @@ export default function HomePage() {
                 </span>
               </p>
               <p className="mx-auto max-w-3xl text-sm leading-relaxed text-white/50 sm:text-base">
-                Apple Gift Card для Турции, США, России и Индии, прямое пополнение Steam и игровые товары с быстрой выдачей после оплаты.
+                {homeSeoPage.intro}
               </p>
             </motion.div>
 

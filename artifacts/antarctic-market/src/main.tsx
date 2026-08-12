@@ -1,5 +1,12 @@
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root")!;
+rootElement.replaceChildren();
+const root = createRoot(rootElement);
+
+flushSync(() => {
+  root.render(<App />);
+});

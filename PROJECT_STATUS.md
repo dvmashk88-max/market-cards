@@ -1,6 +1,51 @@
 # PROJECT STATUS
 
-Дата обновления: 8 августа 2026 года.
+Дата обновления: 11 августа 2026 года.
+
+## SEO-аудит и русскоязычная коммерческая оптимизация — 11 августа 2026 года
+
+### SEO-аудит и страницы
+
+- Проведён SEO-аудит MarketCode Pro.
+- Доработана русскоязычная коммерческая SEO-семантика главной и девяти товарных страниц:
+  - `/`;
+  - `/apple-gift-card-turkey`;
+  - `/apple-gift-card-usa`;
+  - `/apple-gift-card-russia`;
+  - `/apple-gift-card-india`;
+  - `/steam`;
+  - `/pubg`;
+  - `/free-fire`;
+  - `/telegram-stars`;
+  - `/telegram-premium`.
+- В `title`, `description`, H1 и видимых текстах естественно отражены основные русские коммерческие поисковые интенты: купить цифровые товары; пополнить Apple ID; Apple Gift Card / подарочная карта Apple; пополнить Steam / кошелёк Steam; пополнить PUBG / купить UC PUBG; пополнить Free Fire / купить алмазы; купить Telegram Stars / звёзды Telegram; купить / оформить Telegram Premium.
+- MarketCode не продаёт аккаунты Apple ID. Продаются Apple Gift Card / цифровые коды для пополнения соответствующего Apple ID / App Store.
+
+### Техническая SEO-доработка
+
+- H1 и русский SEO-текст главной и девяти товарных страниц теперь присутствуют в первоначальном HTML до выполнения JavaScript.
+- После запуска React статический SEO-блок заменяется синхронно без дублирования H1 или текста.
+- Canonical использует основной домен `https://www.marketcode.pro`, документ сохраняет `lang="ru"`, индексируемые страницы — `robots="index, follow"`.
+- Все десять индексируемых SEO-страниц присутствуют в `sitemap.xml`; существующие канонические URL не изменялись.
+- `/order/return` остаётся `noindex, nofollow`; неизвестные URL возвращают настоящий HTTP `404` и используют `noindex`-shell.
+- Варианты URL с `.html` и завершающим `/` нормализуются постоянным HTTP `301` на существующие канонические URL.
+
+### Неизменённая функциональность
+
+- Не изменялись каталог и бизнес-логика, API, Alfa/payment flow, интеграция FazerCards, расчёт цен, выдача товара, email-доставка и домен.
+
+### Финальная проверка
+
+- Frontend tests: `19/19 PASSED`.
+- Backend tests: `60/60 PASSED`.
+- Все TypeScript checks: `PASSED`.
+- Frontend production build: `PASSED`.
+- Backend production build: `PASSED`.
+- `git diff --check`: `PASSED`.
+- Все десять SEO-страниц возвращают HTTP `200`; sitemap проверен.
+- `/order/return`, настоящий HTTP `404` и нормализующие HTTP `301` проверены.
+- Блокирующих ошибок нет.
+- Предупреждение Vite о JS-чанке размером около 500 KB является неблокирующим.
 
 ## Google Search Console, SEO и завершение заказа — 8 августа 2026 года
 

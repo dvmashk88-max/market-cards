@@ -5,14 +5,19 @@ export type PublicSeoPage = {
 };
 
 export const DEFAULT_DESCRIPTION =
-  "MarketCode — магазин цифровых товаров: Apple Gift Card, прямое пополнение Steam, Telegram Stars и Premium, UC PUBG и алмазы Free Fire.";
+  "Купить цифровые товары онлайн: Apple Gift Card, чтобы пополнить Apple ID, пополнение Steam, PUBG UC, Free Fire, Telegram Stars и Telegram Premium.";
+
+export const homeSeoPage = {
+  path: "/",
+  title: "Купить цифровые товары — Apple, Steam, Telegram | MarketCode",
+  description: DEFAULT_DESCRIPTION,
+  h1: "Магазин цифровых товаров MarketCode",
+  intro:
+    "В MarketCode можно купить цифровые товары: Apple Gift Card, чтобы пополнить Apple ID и App Store, пополнение Steam, PUBG UC, алмазы Free Fire, Telegram Stars и подписку Telegram Premium.",
+} as const;
 
 export const publicSeoPages: readonly PublicSeoPage[] = [
-  {
-    path: "/",
-    title: "MarketCode — магазин цифровых товаров: Apple, Steam, Telegram",
-    description: DEFAULT_DESCRIPTION,
-  },
+  homeSeoPage,
   {
     path: "/oferta",
     title: "Публичная оферта — Маркет цифровых товаров",

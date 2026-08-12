@@ -34,9 +34,13 @@ export function registerProductionFrontend(app: Express, publicDir: string) {
   });
   app.get("/order/return", (_req, res) => {
     res.set("X-Robots-Tag", "noindex, nofollow");
-    res.sendFile(path.join(publicDir, "index.html"));
+    res.sendFile(path.join(publicDir, ".spa-shell.html"), {
+      dotfiles: "allow",
+    });
   });
   app.get("/{*path}", (_req, res) => {
-    res.status(404).sendFile(path.join(publicDir, "index.html"));
+    res.status(404).sendFile(path.join(publicDir, ".spa-shell.html"), {
+      dotfiles: "allow",
+    });
   });
 }

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { catalogSeoPages, SITE_URL } from "./seoCatalog";
-import { legalSeoPages, publicSeoPages } from "./seoPublic";
+import { homeSeoPage, legalSeoPages, publicSeoPages } from "./seoPublic";
 
 test("public SEO metadata contains unique canonical paths, titles and descriptions", () => {
   assert.equal(publicSeoPages.length, 6);
@@ -20,6 +20,48 @@ test("public SEO metadata contains unique canonical paths, titles and descriptio
     new Set(publicSeoPages.map((page) => page.description)).size,
     publicSeoPages.length,
   );
+});
+
+test("home SEO content covers the main Russian commercial directions", () => {
+  const content = [
+    homeSeoPage.title,
+    homeSeoPage.description,
+    homeSeoPage.h1,
+    homeSeoPage.intro,
+  ]
+    .join(" ")
+    .toLocaleLowerCase("ru-RU");
+
+  for (const phrase of [
+    "магазин цифровых товаров",
+    "купить цифровые товары",
+    "пополнить Apple ID",
+    "Apple Gift Card",
+    "пополнение Steam",
+    "PUBG UC",
+    "Free Fire",
+    "Telegram Stars",
+    "Telegram Premium",
+  ]) {
+    assert.ok(content.includes(phrase.toLocaleLowerCase("ru-RU")), phrase);
+  }
+});
+
+test("source HTML contains visible home SEO content before JavaScript", async () => {
+  const html = await readFile(
+    new URL("../../index.html", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(html, /<html lang="ru">/);
+  assert.match(html, /<meta name="robots" content="index, follow"/);
+  assert.match(
+    html,
+    /<link rel="canonical" href="https:\/\/www\.marketcode\.pro\/"/,
+  );
+  assert.match(html, /data-static-seo-content="true"/);
+  assert.match(html, new RegExp(`<h1[^>]*>${homeSeoPage.h1}</h1>`));
+  assert.match(html, new RegExp(homeSeoPage.intro));
 });
 
 test("sitemap contains exactly the real indexable canonical pages", async () => {

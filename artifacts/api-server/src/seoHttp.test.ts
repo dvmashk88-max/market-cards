@@ -18,6 +18,11 @@ test("production frontend serves canonical routes and returns real HTTP 404 resp
     "<title>Home</title>",
     "utf8",
   );
+  await writeFile(
+    path.join(publicDir, ".spa-shell.html"),
+    '<meta name="robots" content="noindex, nofollow"><div id="root"></div>',
+    "utf8",
+  );
   await Promise.all(
     INDEXABLE_PATHS.filter((seoPath) => seoPath !== "/").map((seoPath) =>
       writeFile(
