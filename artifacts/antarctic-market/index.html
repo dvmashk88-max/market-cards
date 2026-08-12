@@ -49,6 +49,63 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      @keyframes static-loading-pulse {
+        0%, 80%, 100% { opacity: .32; transform: scale(.78); }
+        40% { opacity: 1; transform: scale(1); }
+      }
+      [data-static-loading] {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: 760px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255,255,255,.08);
+      }
+      [data-static-loading-indicator] {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 6px;
+        padding: 10px 12px;
+        border: 1px solid rgba(165,243,252,.14);
+        border-radius: 999px;
+        background: rgba(103,86,238,.09);
+      }
+      [data-static-loading-indicator] span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #a5f3fc;
+        box-shadow: 0 0 12px rgba(103,232,249,.38);
+        animation: static-loading-pulse 1.4s ease-in-out infinite;
+      }
+      [data-static-loading-indicator] span:nth-child(2) { animation-delay: .16s; }
+      [data-static-loading-indicator] span:nth-child(3) { animation-delay: .32s; }
+      [data-static-loading-copy] { margin: 0; }
+      [data-static-loading-copy] strong {
+        display: block;
+        color: rgba(255,255,255,.88);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      [data-static-loading-copy] span {
+        display: block;
+        margin-top: 3px;
+        color: rgba(255,255,255,.48);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      @media (max-width: 600px) {
+        [data-static-seo-content] { padding: 48px 16px 32px !important; }
+        [data-static-seo-content] > section { padding: 28px 22px !important; border-radius: 24px !important; }
+        [data-static-loading] { align-items: flex-start; gap: 12px; margin-top: 26px; padding-top: 20px; }
+        [data-static-loading-indicator] { margin-top: 2px; padding: 9px 10px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        [data-static-loading-indicator] span { animation: none; opacity: .7; transform: none; }
+      }
+    </style>
   </head>
   <body>
     <div id="root">
@@ -58,6 +115,10 @@
           <p style="margin:0 0 16px;color:rgba(165,243,252,.72);font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase">MarketCode · цифровые товары</p>
           <h1 style="max-width:880px;margin:0;font-size:clamp(2rem,5vw,3.5rem);line-height:1.08">Магазин цифровых товаров MarketCode</h1>
           <p style="max-width:760px;margin:24px 0 0;color:rgba(255,255,255,.68);font-size:18px;line-height:1.7">В MarketCode можно купить цифровые товары: Apple Gift Card, чтобы пополнить Apple ID и App Store, пополнение Steam, PUBG UC, алмазы Free Fire, Telegram Stars и подписку Telegram Premium.</p>
+          <div data-static-loading="true" role="status" aria-live="polite">
+            <span data-static-loading-indicator="true" aria-hidden="true"><span></span><span></span><span></span></span>
+            <p data-static-loading-copy="true"><strong>Загружаем каталог и актуальные цены…</strong><span>Обычно это занимает несколько секунд.</span></p>
+          </div>
         </section>
       </main>
       <!-- seo-static-end -->

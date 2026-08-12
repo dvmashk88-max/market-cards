@@ -66,6 +66,10 @@ function renderStaticSeoContent(html: string, page: GeneratedSeoPage): string {
           <p style="margin:0 0 16px;color:rgba(165,243,252,.72);font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase">MarketCode · цифровые товары</p>
           <h1 style="max-width:880px;margin:0;font-size:clamp(2rem,5vw,3.5rem);line-height:1.08">${escapeHtml(page.h1)}</h1>
           <p style="max-width:760px;margin:24px 0 0;color:rgba(255,255,255,.68);font-size:18px;line-height:1.7">${escapeHtml(page.intro)}</p>
+          <div data-static-loading="true" role="status" aria-live="polite">
+            <span data-static-loading-indicator="true" aria-hidden="true"><span></span><span></span><span></span></span>
+            <p data-static-loading-copy="true"><strong>Загружаем каталог и актуальные цены…</strong><span>Обычно это занимает несколько секунд.</span></p>
+          </div>
         </section>
       </main>
       <!-- seo-static-end -->`

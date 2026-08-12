@@ -60,6 +60,9 @@ test("source HTML contains visible home SEO content before JavaScript", async ()
     /<link rel="canonical" href="https:\/\/www\.marketcode\.pro\/"/,
   );
   assert.match(html, /data-static-seo-content="true"/);
+  assert.match(html, /data-static-loading="true"/);
+  assert.match(html, /Загружаем каталог и актуальные цены…/);
+  assert.match(html, /Обычно это занимает несколько секунд\./);
   assert.match(html, new RegExp(`<h1[^>]*>${homeSeoPage.h1}</h1>`));
   assert.match(html, new RegExp(homeSeoPage.intro));
 });
