@@ -1,6 +1,167 @@
 # PROJECT STATUS
 
-Дата обновления: 11 августа 2026 года.
+Дата обновления: 20 августа 2026 года.
+
+## Storefront Trust / статистика и отзывы — 20 августа 2026
+
+### Публичный блок «MarketCode в цифрах»
+
+- На главной странице реализован единый блок «MarketCode в цифрах» с количеством посещений, количеством успешных покупок, средней оценкой, количеством отзывов, последними отзывами и формой публикации отзыва.
+- Блок расположен после раздела «Как это работает» и перед FAQ.
+
+### Посещения
+
+- Создана таблица `site_visits`.
+- Для дедупликации используется first-party HttpOnly cookie: один browser visit учитывается не чаще одного раза в течение 24 часов.
+- Refresh и новая вкладка с действующей cookie не увеличивают счётчик.
+- В БД хранится только SHA-256 hash случайного технического token; исходный token остаётся в cookie браузера.
+- Исторический backfill посещений не выполнялся.
+- На момент production-проверки: `visits = 0`.
+
+### Успешные покупки
+
+- Счётчик рассчитывается read-only агрегатом из существующей таблицы `orders` и учитывает только строго успешно выполненные заказы.
+- На момент production-проверки: `successfulPurchases = 8`.
+- Отдельный искусственный purchase counter не создавался.
+- Business logic заказов не изменялась.
+
+### Отзывы
+
+- Создана таблица `reviews`.
+- Отзыв содержит рейтинг от 1 до 5, имя или ник и текст.
+- Валидный отзыв публикуется автоматически; ручная очередь премодерации не добавлялась.
+- Действует правило: один отзыв на один 24-часовой visit.
+- При отсутствии отзывов API возвращает `averageRating = null`.
+- На момент production-проверки: `reviews = 0`; фиктивные отзывы не создавались.
+
+### Защита
+
+- Реализованы Zod validation, ограничения длины имени и текста, проверка рейтинга и защита от управляющих символов.
+- SQL-запросы параметризованы; пользовательский текст выводится XSS-safe без HTML rendering.
+- Пользовательские URL не превращаются автоматически в активные ссылки.
+- Добавлены honeypot, минимальное время заполнения формы, rate limit, ограничение размера JSON body, SQL timeout и небольшой server-side cache.
+
+### API
+
+- `GET /api/storefront/stats`.
+- `POST /api/storefront/visits`.
+- `GET /api/storefront/reviews`.
+- `POST /api/storefront/reviews`.
+
+### Migration и production DB
+
+- Добавлена additive migration `lib/db/migrations/0005_storefront_trust.sql`.
+- Migration создаёт только `site_visits`, `reviews` и необходимые constraints/indexes/FK.
+- Таблица `orders` не подвергается `ALTER`, `DROP` или `RENAME`; backfill отсутствует, существующие production orders не изменены.
+- Состояние production DB после migration:
+  - `orders`: 12;
+  - `email_sent`: 8;
+  - `failed`: 3;
+  - `payment_pending`: 1;
+  - строгих успешных покупок: 8.
+
+### Backup и release
+
+- Перед deployment выполнен `pg_dump` production PostgreSQL; backup проверен через `pg_restore --list`. Connection strings, пароли и другие secrets в документацию не добавлялись.
+- Functional commit: `2cbf88c9581c7da0201212e282e0c53fc5735c7f`.
+- Commit message: `Add storefront trust stats and reviews`.
+- Railway deployment: `bdc34d4f-d57b-450d-8386-d3e27b68c61f`.
+- Deployment status: `SUCCESS`; production service: `Online`.
+
+### Production-проверка
+
+- `/api/healthz` → HTTP `200`.
+- `/api/storefront/stats` → HTTP `200`.
+- `/api/storefront/reviews?limit=3` → HTTP `200`.
+- <https://www.marketcode.pro> → HTTP `200`.
+- Production API вернул `visits = 0`, `successfulPurchases = 8`, `averageRating = null`, `reviewsCount = 0` и пустой список отзывов.
+
+### SEO, Safari и bundle
+
+- Русский SEO, один H1, canonical, robots, sitemap и static loading-state сохранены.
+- Safari stale Vite assets fallback сохранён: текущие hashed assets доступны с immutable cache, старый entry hash перенаправляется на текущий, неизвестный asset возвращает настоящий `404`.
+- Trust-block не добавляет `AggregateRating`, фиктивные отзывы или другие фиктивные structured data.
+- Production initial JS raw: `509412 bytes`; прирост относительно предыдущего baseline — `9303 bytes` (около `1,86%`).
+- Существенные новые UI, animation или chart libraries не добавлялись.
+
+### Критическая бизнес-логика
+
+- Не изменялись checkout, цены, создание заказа, Alfa, FazerCards, supplier purchase, payment return, polling, worker, delivery, выдача цифрового кода, encryption, email и retry/idempotency.
+
+## Оптимизация главной / iPhone Safari performance — 20 августа 2026
+
+### Причина
+
+- Оптимизация выполнена из-за длительной загрузки MarketCode на iPhone Safari и в некоторых iOS WebView, тогда как на Mac и в части других браузеров сайт работал значительно быстрее.
+- Read-only аудит выявил монолитный initial JS, Framer Motion, большой DOM, тяжёлые `fixed`/`filter`/`backdrop-blur` эффекты и синхронный mount длинной `HomePage`.
+
+### Что удалено и упрощено
+
+- Удалены секции «Как это работает» и FAQ.
+- Удалена отдельная секция контактов; контакты сохранены в `Footer`.
+- Удалены четыре дублирующие feature cards.
+- «Цифровые товары по направлениям» сохранены, но преобразованы в компактные текстовые SEO-ссылки. Все девять SEO-ссылок также добавлены в initial production HTML.
+- `Header` сокращён до актуальной навигации.
+- Удалены тяжёлые full-screen fixed blur; облегчены backdrop/glow-эффекты.
+- Сохранены общий dark/purple/cyan-дизайн, карточки, градиенты, typography и CSS hover-эффекты.
+
+### Производительность и надёжность
+
+- На `HomePage` количество Framer Motion instances сокращено примерно с 26 до 0.
+- `framer-motion` удалён из frontend dependencies, так как больше не используется frontend-приложением. Также удалены неиспользуемые Sonner и `next-themes`.
+- Устранено дублирующее подключение Google Fonts; Inter подключается один раз.
+- Route splitting выполнен для legal pages, `OrderReturnPage`, `CatalogLandingPage` и `LegalLayout`; `HomePage` остаётся initial route.
+- Добавлен controlled chunk recovery для stale lazy chunks без цикла автоперезагрузок.
+- Загрузка trust/reviews/stats/visit отложена до приближения trust-блока к viewport либо до idle. Запросы stats/reviews больше не ждут завершения `POST visit`.
+- Для categories/products добавлен timeout 12 секунд и не более одного retry. Abort, timeout и HTTP 4xx не повторяются; для network failure и HTTP 5xx допускается один retry.
+- Checkout сознательно **не** выносился в lazy chunk ради надёжности основного пути покупки.
+
+### Bundle: до и после
+
+- BEFORE: initial JS — `509412 B raw`, `156333 B gzip`; CSS — `141556 B raw`, `22065 B gzip`.
+- AFTER: initial JS — `301851 B raw`, `93120 B gzip`; CSS — `140990 B raw`, `21713 B gzip`.
+- Initial JS уменьшен примерно на `40,4%` gzip; DOM оценочно уменьшен примерно на `30%`.
+- Production build теперь содержит initial entry и deferred route chunks.
+
+### Сознательно не изменялось
+
+- Не изменялись визуальная и функциональная структура основного каталога, категории, карточки товаров, выбор товара и номинала.
+- Не изменялись checkout, checkout validation, `createOrder`, цены и markup, checkout key/idempotency, Alfa, FazerCards, orders, worker, payment return, polling, delivery, выдача цифровых кодов, encryption, email и API contracts.
+- Production DB, schema и migrations не изменялись.
+
+### SEO
+
+- Сохранены все 10 индексируемых commercial pages и их прежние URL.
+- На всех commercial pages сохранены `title`/`description`, canonical, robots, ровно один H1, `lang="ru"`, static Russian SEO HTML, sitemap и JSON-LD.
+- Сохранены Apple/Steam/Telegram/PUBG/Free Fire семантика и все девять directions links.
+- Удаление FAQ и «Как это работает» не удалило commercial SEO pages.
+
+### Проверки
+
+- Frontend tests: `30/30 PASS`.
+- Backend tests: `71/71 PASS`.
+- Frontend TypeScript: `PASS`.
+- Backend TypeScript: `PASS`.
+- Workspace library TypeScript: `PASS`.
+- Frontend production build: `PASS`.
+- Backend production build: `PASS`.
+- `git diff --check`: `PASS`.
+- Checkout regression: `PASS`.
+- Business regression: `PASS`.
+- Trust regression: `PASS`.
+- SEO regression: `PASS`.
+
+### Точка восстановления
+
+- Текущая рабочая production-версия **до** этой локальной performance-оптимизации: commit `2cbf88c9581c7da0201212e282e0c53fc5735c7f`.
+- Это рабочая production-точка Storefront Trust до новой локальной оптимизации главной.
+
+### Текущее состояние
+
+- Performance-оптимизация существует только локально.
+- Commit для performance-оптимизации не выполнялся; push и deploy не выполнялись.
+- Production пока работает на commit `2cbf88c9581c7da0201212e282e0c53fc5735c7f`.
+- Railway, production DB/PostgreSQL и DNS не изменялись.
 
 ## SEO-аудит и русскоязычная коммерческая оптимизация — 11 августа 2026 года
 
@@ -46,6 +207,59 @@
 - `/order/return`, настоящий HTTP `404` и нормализующие HTTP `301` проверены.
 - Блокирующих ошибок нет.
 - Предупреждение Vite о JS-чанке размером около 500 KB является неблокирующим.
+
+## Safari / production stability — 11 августа 2026
+
+### Русское SEO
+
+- Главная и девять товарных SEO-страниц оптимизированы под русские коммерческие запросы: «пополнить Apple ID», Steam, PUBG, Free Fire, Telegram Stars, Telegram Premium и связанные интенты.
+- Первоначальный HTML содержит статический русский H1 и SEO-текст до выполнения JavaScript.
+- Canonical, robots, sitemap и корректные HTTP `200` / `301` / `404` сохранены.
+- Apple-страницы описывают продажу Apple Gift Card / цифрового кода для пополнения Apple ID и App Store, а не продажу аккаунтов Apple ID.
+- SEO commit: `ed2fff7f94f23ada1bd81d8a62ebccdabc382f8a`.
+
+### Safari React bootstrap
+
+- После SEO-доработки на iPhone Safari была обнаружена нестабильная загрузка React.
+- Из bootstrap удалены `replaceChildren()` и `flushSync()`; восстановлен стандартный вызов `createRoot(...).render(<App />)`.
+- React-бизнес-логика не менялась.
+- Commit: `014a5b59889d4603e561c70512a50ec46263ac51`.
+
+### Safari stale Vite assets
+
+- По Railway HTTP-логам установлено, что Safari иногда использовал старый HTML со ссылками на hashed JS/CSS предыдущих deployment. После новой публикации этих файлов уже не было, запросы возвращали `404`, React не запускался, и пользователь оставался на статическом SEO-экране.
+- Для HTML установлен `Cache-Control: no-cache, must-revalidate`.
+- Текущие hashed JS/CSS получают `Cache-Control: public, max-age=31536000, immutable`.
+- Отсутствующие старые Vite entry-файлы `index-<hash>.js` и `index-<hash>.css` временно перенаправляются на текущий entry; ответ redirect получает `Cache-Control: no-store`.
+- Произвольные отсутствующие assets по-прежнему возвращают настоящий HTTP `404`.
+- API, checkout, Alfa, FazerCards, orders, payment return, delivery, email и БД не менялись.
+- Commit: `bb02654e40cdf0821f9b6a4f8584f6a56b7a7269`.
+
+### Диагностика frontend bundle
+
+- Текущий initial JS имеет размер около 500 KB raw / 150 KB gzip; CSS — около 139 KB raw / 21 KB gzip.
+- Нормального route-level code splitting сейчас нет: все основные маршруты входят в initial JS. Framer Motion и ReactDOM являются крупными частями bundle.
+- Bundle оценён как заметно тяжёлый, но диагностика не доказала его основной причиной задержек Safari.
+- Route-level code splitting не выполнялся. Эту оптимизацию следует рассматривать как возможную будущую задачу только при сохранении проблемы Safari.
+
+### Loading-state
+
+- В статический стартовый SEO-экран добавлен лёгкий HTML/CSS loading-state с тремя пульсирующими бирюзовыми точками и текстом:
+  - «Загружаем каталог и актуальные цены…»
+  - «Обычно это занимает несколько секунд.»
+- Loading-state информирует пользователя во время загрузки React. После запуска React статический экран полностью заменяется интерфейсом магазина, двойного интерфейса нет.
+- Поддерживается `prefers-reduced-motion`; SEO и бизнес-логика не изменены.
+- Commit: `2c92b910c9c748b62582681eb08bd637fc853ca0`.
+- Production deployment: `0097c457-6d2d-4fbe-81df-410a85505017`; статус: `SUCCESS`; сервис: `Online`; `/api/healthz`: HTTP `200`.
+
+### Текущее состояние
+
+- Production работает; <https://www.marketcode.pro> отвечает HTTP `200`.
+- Storefront categories/products API отвечает HTTP `200`.
+- `/order/return` работает и остаётся `noindex, nofollow`.
+- Русское SEO сохранено, Safari stale-assets fallback работает, loading-state опубликован.
+- Бизнес-процессы магазина не менялись: checkout, Alfa, FazerCards, заказы, payment return, выдача кодов и email не затронуты.
+- Периодически медленная загрузка именно на iPhone Safari окончательно не доказана как полностью устранённая. После исправлений сайт открывается; дальнейшую оптимизацию и профилирование следует выполнять только при необходимости.
 
 ## Google Search Console, SEO и завершение заказа — 8 августа 2026 года
 

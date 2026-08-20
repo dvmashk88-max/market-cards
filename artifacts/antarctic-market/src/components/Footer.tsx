@@ -2,7 +2,7 @@ import { Link } from "wouter";
 
 export default function Footer() {
   return (
-    <footer style={{ background:"#020407", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
+    <footer id="contacts" style={{ background:"#020407", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-8">
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:"40px", marginBottom:"40px" }}>
 

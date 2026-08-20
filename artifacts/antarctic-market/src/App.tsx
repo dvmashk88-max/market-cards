@@ -1,15 +1,8 @@
-import { useEffect } from "react";
+import { Component, Suspense, useEffect, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/sonner";
 import HomePage from "./pages/HomePage";
-import OfertaPage from "./pages/OfertaPage";
-import PrivacyPage from "./pages/PrivacyPage";
-import PersonalDataPage from "./pages/PersonalDataPage";
-import TermsPage from "./pages/TermsPage";
-import RefundPage from "./pages/RefundPage";
-import OrderReturnPage from "./pages/OrderReturnPage";
-import CatalogLandingPage from "./pages/CatalogLandingPage";
+import { lazyRoute } from "./lib/chunkRecovery";
 import {
   catalogPageStructuredData,
   catalogSeoByPath,
@@ -18,6 +11,51 @@ import {
 import { DEFAULT_DESCRIPTION, publicSeoByPath } from "./lib/seoPublic";
 
 const queryClient = new QueryClient();
+const OfertaPage = lazyRoute(() => import("./pages/OfertaPage"));
+const PrivacyPage = lazyRoute(() => import("./pages/PrivacyPage"));
+const PersonalDataPage = lazyRoute(() => import("./pages/PersonalDataPage"));
+const TermsPage = lazyRoute(() => import("./pages/TermsPage"));
+const RefundPage = lazyRoute(() => import("./pages/RefundPage"));
+const OrderReturnPage = lazyRoute(() => import("./pages/OrderReturnPage"));
+const CatalogLandingPage = lazyRoute(() => import("./pages/CatalogLandingPage"));
+
+function RouteFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#050818] px-4 text-white">
+      <p className="text-sm text-white/55" role="status">Загружаем страницу…</p>
+    </main>
+  );
+}
+
+class RouteErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: unknown }
+> {
+  state: { error: unknown } = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050818] px-4 text-center text-white">
+        <div className="max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+          <p className="font-bold">Не удалось загрузить страницу</p>
+          <p className="mt-2 text-sm leading-6 text-white/50">Обновите страницу, чтобы получить актуальную версию сайта.</p>
+          <button
+            className="mt-5 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 px-5 py-3 text-sm font-bold"
+            onClick={() => window.location.reload()}
+            type="button"
+          >
+            Обновить страницу
+          </button>
+        </div>
+      </main>
+    );
+  }
+}
 
 function setMeta(selector: string, content: string) {
   document
@@ -107,9 +145,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <SeoMetadata />
-        <Router />
+        <RouteErrorBoundary>
+          <Suspense fallback={<RouteFallback />}>
+            <Router />
+          </Suspense>
+        </RouteErrorBoundary>
       </WouterRouter>
-      <Toaster position="top-center" theme="dark" />
     </QueryClientProvider>
   );
 }

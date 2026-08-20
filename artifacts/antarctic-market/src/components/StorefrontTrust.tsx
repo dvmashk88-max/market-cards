@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type FormEvent } from "react";
+import React, { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import {
   fetchStorefrontReviews,
   fetchStorefrontStats,
@@ -22,6 +22,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export type StorefrontTrustViewProps = {
+  sectionRef?: RefObject<HTMLElement | null>;
   stats: StorefrontStats | null;
   reviews: StorefrontReview[];
   loading: boolean;
@@ -52,25 +53,26 @@ export function StorefrontTrustView(props: StorefrontTrustViewProps) {
 
   return (
     <section
+      ref={props.sectionRef}
       id="trust"
       aria-labelledby="storefront-trust-title"
-      className="px-4 py-14"
+      className="px-4 py-10"
     >
       <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
         <div className="h-1 bg-gradient-to-r from-purple-600 via-indigo-500 to-cyan-500" />
-        <div className="p-6 sm:p-8 lg:p-10">
+        <div className="p-5 sm:p-7 lg:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200/65">
             Доверие покупателей
           </p>
           <h2
             id="storefront-trust-title"
-            className="mt-2 text-3xl font-black text-white md:text-4xl"
+            className="mt-2 text-2xl font-black text-white md:text-3xl"
           >
             MarketCode в цифрах
           </h2>
 
           <div
-            className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4"
             aria-busy={props.loading}
           >
             {[
@@ -92,7 +94,7 @@ export function StorefrontTrustView(props: StorefrontTrustViewProps) {
             ].map(([value, label]) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                className="rounded-xl border border-white/10 bg-black/20 p-4"
               >
                 <p className="text-2xl font-black text-white">{value}</p>
                 <p className="mt-1 text-xs text-white/45">{label}</p>
@@ -107,7 +109,7 @@ export function StorefrontTrustView(props: StorefrontTrustViewProps) {
             </p>
           )}
 
-          <div className="mt-9">
+          <div className="mt-7">
             <h3 className="text-xl font-bold text-white">Последние отзывы</h3>
             {props.loading && props.reviews.length === 0 ? (
               <p className="mt-4 text-sm text-white/45">Загружаем отзывы…</p>
@@ -143,7 +145,7 @@ export function StorefrontTrustView(props: StorefrontTrustViewProps) {
             )}
           </div>
 
-          <div className="mt-8 border-t border-white/10 pt-7">
+          <div className="mt-6 border-t border-white/10 pt-5">
             {!props.formOpen ? (
               <button
                 type="button"
@@ -261,6 +263,7 @@ export function StorefrontTrustView(props: StorefrontTrustViewProps) {
 }
 
 export default function StorefrontTrust() {
+  const sectionRef = useRef<HTMLElement>(null);
   const [stats, setStats] = useState<StorefrontStats | null>(null);
   const [reviews, setReviews] = useState<StorefrontReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -276,7 +279,7 @@ export default function StorefrontTrust() {
   const [submitted, setSubmitted] = useState(false);
 
   async function load(signal?: AbortSignal) {
-    await registerStorefrontVisit(signal).catch(() => undefined);
+    void registerStorefrontVisit(signal).catch(() => undefined);
     const [statsResult, reviewsResult] = await Promise.allSettled([
       fetchStorefrontStats(signal),
       fetchStorefrontReviews(3, signal),
@@ -291,10 +294,41 @@ export default function StorefrontTrust() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal).finally(() => {
-      if (!controller.signal.aborted) setLoading(false);
-    });
-    return () => controller.abort();
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      void load(controller.signal).finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    };
+    const observer = typeof IntersectionObserver === "undefined"
+      ? null
+      : new IntersectionObserver(
+          (entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+              start();
+              observer?.disconnect();
+            }
+          },
+          { rootMargin: "320px 0px" },
+        );
+    if (sectionRef.current) observer?.observe(sectionRef.current);
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const idleHandle = idleWindow.requestIdleCallback?.(start, { timeout: 2_500 });
+    const fallbackHandle = idleHandle === undefined
+      ? window.setTimeout(start, 1_500)
+      : undefined;
+
+    return () => {
+      controller.abort();
+      observer?.disconnect();
+      if (idleHandle !== undefined) idleWindow.cancelIdleCallback?.(idleHandle);
+      if (fallbackHandle !== undefined) window.clearTimeout(fallbackHandle);
+    };
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -354,6 +388,7 @@ export default function StorefrontTrust() {
 
   return (
     <StorefrontTrustView
+      sectionRef={sectionRef}
       stats={stats}
       reviews={reviews}
       loading={loading}

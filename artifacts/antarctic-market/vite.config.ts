@@ -58,6 +58,11 @@ type GeneratedSeoPage = {
 };
 
 function renderStaticSeoContent(html: string, page: GeneratedSeoPage): string {
+  const homeDirectionLinks = page.path === "/"
+    ? `<nav aria-label="Каталог по направлениям" style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:26px;padding-top:22px;border-top:1px solid rgba(255,255,255,.08)">
+            ${catalogSeoPages.map((item) => `<a href="${escapeHtml(item.path)}" style="color:rgba(165,243,252,.78);font-size:13px;text-underline-offset:4px">${escapeHtml(item.shortName)}</a>`).join("")}
+          </nav>`
+    : "";
   const content =
     page.h1 && page.intro
       ? `<!-- seo-static-start -->
@@ -70,6 +75,7 @@ function renderStaticSeoContent(html: string, page: GeneratedSeoPage): string {
             <span data-static-loading-indicator="true" aria-hidden="true"><span></span><span></span><span></span></span>
             <p data-static-loading-copy="true"><strong>Загружаем каталог и актуальные цены…</strong><span>Обычно это занимает несколько секунд.</span></p>
           </div>
+          ${homeDirectionLinks}
         </section>
       </main>
       <!-- seo-static-end -->`
