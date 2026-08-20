@@ -179,6 +179,142 @@ export const StorefrontProductResponse = zod.object({
 });
 
 /**
+ * @summary Get public storefront trust statistics
+ */
+export const storefrontStatsResponseVisitsMin = 0;
+
+export const storefrontStatsResponseSuccessfulPurchasesMin = 0;
+
+export const storefrontStatsResponseAverageRatingMax = 5;
+
+export const storefrontStatsResponseReviewsCountMin = 0;
+
+export const StorefrontStatsResponse = zod.object({
+  visits: zod.number().min(storefrontStatsResponseVisitsMin),
+  successfulPurchases: zod
+    .number()
+    .min(storefrontStatsResponseSuccessfulPurchasesMin),
+  averageRating: zod
+    .number()
+    .min(1)
+    .max(storefrontStatsResponseAverageRatingMax)
+    .nullable(),
+  reviewsCount: zod.number().min(storefrontStatsResponseReviewsCountMin),
+});
+
+/**
+ * @summary Register at most one browser visit per 24 hours
+ */
+export const RegisterStorefrontVisitResponse = zod.void();
+
+/**
+ * @summary Get the latest visible storefront reviews
+ */
+export const storefrontReviewsQueryLimitDefault = 3;
+export const storefrontReviewsQueryLimitMax = 10;
+
+export const StorefrontReviewsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(storefrontReviewsQueryLimitMax)
+    .default(storefrontReviewsQueryLimitDefault),
+});
+
+export const storefrontReviewsResponseReviewsItemNameMin = 2;
+export const storefrontReviewsResponseReviewsItemNameMax = 50;
+
+export const storefrontReviewsResponseReviewsItemRatingMax = 5;
+
+export const storefrontReviewsResponseReviewsItemTextMin = 5;
+export const storefrontReviewsResponseReviewsItemTextMax = 500;
+
+export const storefrontReviewsResponseReviewsMax = 10;
+
+export const StorefrontReviewsResponse = zod.object({
+  reviews: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        name: zod
+          .string()
+          .min(storefrontReviewsResponseReviewsItemNameMin)
+          .max(storefrontReviewsResponseReviewsItemNameMax),
+        rating: zod
+          .number()
+          .min(1)
+          .max(storefrontReviewsResponseReviewsItemRatingMax),
+        text: zod
+          .string()
+          .min(storefrontReviewsResponseReviewsItemTextMin)
+          .max(storefrontReviewsResponseReviewsItemTextMax),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .max(storefrontReviewsResponseReviewsMax),
+});
+
+/**
+ * @summary Validate and automatically publish a storefront review
+ */
+export const createStorefrontReviewBodyNameMin = 2;
+export const createStorefrontReviewBodyNameMax = 50;
+
+export const createStorefrontReviewBodyRatingMax = 5;
+
+export const createStorefrontReviewBodyTextMin = 5;
+export const createStorefrontReviewBodyTextMax = 500;
+
+export const createStorefrontReviewBodyWebsiteDefault = ``;
+export const createStorefrontReviewBodyWebsiteMax = 0;
+
+export const createStorefrontReviewBodyFormStartedAtMin = 0;
+
+export const CreateStorefrontReviewBody = zod.object({
+  name: zod
+    .string()
+    .min(createStorefrontReviewBodyNameMin)
+    .max(createStorefrontReviewBodyNameMax),
+  rating: zod.number().min(1).max(createStorefrontReviewBodyRatingMax),
+  text: zod
+    .string()
+    .min(createStorefrontReviewBodyTextMin)
+    .max(createStorefrontReviewBodyTextMax),
+  website: zod
+    .string()
+    .max(createStorefrontReviewBodyWebsiteMax)
+    .default(createStorefrontReviewBodyWebsiteDefault),
+  formStartedAt: zod.number().min(createStorefrontReviewBodyFormStartedAtMin),
+});
+
+export const createStorefrontReviewResponseReviewNameMin = 2;
+export const createStorefrontReviewResponseReviewNameMax = 50;
+
+export const createStorefrontReviewResponseReviewRatingMax = 5;
+
+export const createStorefrontReviewResponseReviewTextMin = 5;
+export const createStorefrontReviewResponseReviewTextMax = 500;
+
+export const CreateStorefrontReviewResponse = zod.object({
+  review: zod.object({
+    id: zod.string().uuid(),
+    name: zod
+      .string()
+      .min(createStorefrontReviewResponseReviewNameMin)
+      .max(createStorefrontReviewResponseReviewNameMax),
+    rating: zod
+      .number()
+      .min(1)
+      .max(createStorefrontReviewResponseReviewRatingMax),
+    text: zod
+      .string()
+      .min(createStorefrontReviewResponseReviewTextMin)
+      .max(createStorefrontReviewResponseReviewTextMax),
+    createdAt: zod.coerce.date(),
+  }),
+});
+
+/**
  * @summary Create an idempotent checkout using a server-verified price
  */
 export const CreateOrderBody = zod.object({

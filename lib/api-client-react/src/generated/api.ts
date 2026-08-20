@@ -19,6 +19,8 @@ import type {
 import type {
   CreateOrderInput,
   CreateOrderResult,
+  CreateStorefrontReviewInput,
+  CreateStorefrontReviewResult,
   HealthStatus,
   OrderDelivery,
   PublicOrder,
@@ -26,6 +28,9 @@ import type {
   StorefrontCategories200,
   StorefrontProduct200,
   StorefrontProducts200,
+  StorefrontReviews,
+  StorefrontReviewsParams,
+  StorefrontStats,
   StorefrontSteamQuote200,
 } from "./api.schemas";
 
@@ -453,6 +458,349 @@ export function useStorefrontProduct<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getStorefrontStatsUrl = () => {
+  return `/api/storefront/stats`;
+};
+
+/**
+ * @summary Get public storefront trust statistics
+ */
+export const storefrontStats = async (
+  options?: RequestInit,
+): Promise<StorefrontStats> => {
+  return customFetch<StorefrontStats>(getStorefrontStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStorefrontStatsQueryKey = () => {
+  return [`/api/storefront/stats`] as const;
+};
+
+export const getStorefrontStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof storefrontStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getStorefrontStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof storefrontStats>>> = ({
+    signal,
+  }) => storefrontStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StorefrontStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontStats>>
+>;
+export type StorefrontStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get public storefront trust statistics
+ */
+
+export function useStorefrontStats<
+  TData = Awaited<ReturnType<typeof storefrontStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStorefrontStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getRegisterStorefrontVisitUrl = () => {
+  return `/api/storefront/visits`;
+};
+
+/**
+ * @summary Register at most one browser visit per 24 hours
+ */
+export const registerStorefrontVisit = async (
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRegisterStorefrontVisitUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRegisterStorefrontVisitMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerStorefrontVisit>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerStorefrontVisit>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["registerStorefrontVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerStorefrontVisit>>,
+    void
+  > = () => {
+    return registerStorefrontVisit(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterStorefrontVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerStorefrontVisit>>
+>;
+
+export type RegisterStorefrontVisitMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register at most one browser visit per 24 hours
+ */
+export const useRegisterStorefrontVisit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerStorefrontVisit>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerStorefrontVisit>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRegisterStorefrontVisitMutationOptions(options));
+};
+
+export const getStorefrontReviewsUrl = (params?: StorefrontReviewsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/storefront/reviews?${stringifiedParams}`
+    : `/api/storefront/reviews`;
+};
+
+/**
+ * @summary Get the latest visible storefront reviews
+ */
+export const storefrontReviews = async (
+  params?: StorefrontReviewsParams,
+  options?: RequestInit,
+): Promise<StorefrontReviews> => {
+  return customFetch<StorefrontReviews>(getStorefrontReviewsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getStorefrontReviewsQueryKey = (
+  params?: StorefrontReviewsParams,
+) => {
+  return [`/api/storefront/reviews`, ...(params ? [params] : [])] as const;
+};
+
+export const getStorefrontReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof storefrontReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: StorefrontReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof storefrontReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getStorefrontReviewsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof storefrontReviews>>
+  > = ({ signal }) => storefrontReviews(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof storefrontReviews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type StorefrontReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof storefrontReviews>>
+>;
+export type StorefrontReviewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the latest visible storefront reviews
+ */
+
+export function useStorefrontReviews<
+  TData = Awaited<ReturnType<typeof storefrontReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: StorefrontReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof storefrontReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getStorefrontReviewsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getCreateStorefrontReviewUrl = () => {
+  return `/api/storefront/reviews`;
+};
+
+/**
+ * @summary Validate and automatically publish a storefront review
+ */
+export const createStorefrontReview = async (
+  createStorefrontReviewInput: CreateStorefrontReviewInput,
+  options?: RequestInit,
+): Promise<CreateStorefrontReviewResult> => {
+  return customFetch<CreateStorefrontReviewResult>(
+    getCreateStorefrontReviewUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStorefrontReviewInput),
+    },
+  );
+};
+
+export const getCreateStorefrontReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStorefrontReview>>,
+    TError,
+    { data: BodyType<CreateStorefrontReviewInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStorefrontReview>>,
+  TError,
+  { data: BodyType<CreateStorefrontReviewInput> },
+  TContext
+> => {
+  const mutationKey = ["createStorefrontReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStorefrontReview>>,
+    { data: BodyType<CreateStorefrontReviewInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createStorefrontReview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStorefrontReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStorefrontReview>>
+>;
+export type CreateStorefrontReviewMutationBody =
+  BodyType<CreateStorefrontReviewInput>;
+export type CreateStorefrontReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Validate and automatically publish a storefront review
+ */
+export const useCreateStorefrontReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStorefrontReview>>,
+    TError,
+    { data: BodyType<CreateStorefrontReviewInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStorefrontReview>>,
+  TError,
+  { data: BodyType<CreateStorefrontReviewInput> },
+  TContext
+> => {
+  return useMutation(getCreateStorefrontReviewMutationOptions(options));
+};
 
 export const getCreateOrderUrl = () => {
   return `/api/orders`;

@@ -106,6 +106,63 @@ paths:
                 properties:
                   product:
                     $ref: "#/components/schemas/StorefrontProduct"
+  /storefront/stats:
+    get:
+      operationId: storefrontStats
+      tags: [storefront]
+      summary: Get public storefront trust statistics
+      responses:
+        "200":
+          description: Public visit, purchase, and review statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorefrontStats"
+  /storefront/visits:
+    post:
+      operationId: registerStorefrontVisit
+      tags: [storefront]
+      summary: Register at most one browser visit per 24 hours
+      responses:
+        "204":
+          description: Visit registered or already counted
+  /storefront/reviews:
+    get:
+      operationId: storefrontReviews
+      tags: [storefront]
+      summary: Get the latest visible storefront reviews
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+      responses:
+        "200":
+          description: Latest visible reviews, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorefrontReviews"
+    post:
+      operationId: createStorefrontReview
+      tags: [storefront]
+      summary: Validate and automatically publish a storefront review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStorefrontReviewInput"
+      responses:
+        "201":
+          description: Review published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateStorefrontReviewResult"
   /orders:
     post:
       operationId: createOrder
@@ -201,7 +258,22 @@ components:
           type: string
     OrderStatus:
       type: string
-      enum: [created, payment_pending, payment_confirmed, supplier_processing, fulfilled, email_sent, payment_failed, supplier_failed, manual_review, email_failed, failed, cancelled, refunded]
+      enum:
+        [
+          created,
+          payment_pending,
+          payment_confirmed,
+          supplier_processing,
+          fulfilled,
+          email_sent,
+          payment_failed,
+          supplier_failed,
+          manual_review,
+          email_failed,
+          failed,
+          cancelled,
+          refunded,
+        ]
     DeliveryType:
       type: string
       enum: [code, account_fulfillment]
@@ -237,7 +309,17 @@ components:
           format: uri
     PublicOrder:
       type: object
-      required: [publicId, status, productName, nominalLabel, deliveryType, emailMasked, notificationEligible, errorMessage]
+      required:
+        [
+          publicId,
+          status,
+          productName,
+          nominalLabel,
+          deliveryType,
+          emailMasked,
+          notificationEligible,
+          errorMessage,
+        ]
       properties:
         publicId:
           type: string
@@ -353,9 +435,93 @@ components:
             - type: "null"
         checkout:
           $ref: "#/components/schemas/CheckoutConfig"
+    StorefrontStats:
+      type: object
+      additionalProperties: false
+      required: [visits, successfulPurchases, averageRating, reviewsCount]
+      properties:
+        visits:
+          type: integer
+          minimum: 0
+        successfulPurchases:
+          type: integer
+          minimum: 0
+        averageRating:
+          type: [number, "null"]
+          minimum: 1
+          maximum: 5
+        reviewsCount:
+          type: integer
+          minimum: 0
+    StorefrontReview:
+      type: object
+      additionalProperties: false
+      required: [id, name, rating, text, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+          minLength: 5
+          maxLength: 500
+        createdAt:
+          type: string
+          format: date-time
+    StorefrontReviews:
+      type: object
+      additionalProperties: false
+      required: [reviews]
+      properties:
+        reviews:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/StorefrontReview"
+    CreateStorefrontReviewInput:
+      type: object
+      additionalProperties: false
+      required: [name, rating, text, formStartedAt]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        text:
+          type: string
+          minLength: 5
+          maxLength: 500
+        website:
+          type: string
+          maxLength: 0
+          default: ""
+        formStartedAt:
+          type: integer
+          format: int64
+          minimum: 0
+    CreateStorefrontReviewResult:
+      type: object
+      additionalProperties: false
+      required: [review]
+      properties:
+        review:
+          $ref: "#/components/schemas/StorefrontReview"
     OrderType:
       type: string
-      enum: [gift_card, steam_topup, telegram_stars, telegram_premium, game_topup]
+      enum:
+        [gift_card, steam_topup, telegram_stars, telegram_premium, game_topup]
     CheckoutField:
       type: object
       required: [key, label, type]

@@ -173,6 +173,72 @@ export interface StorefrontProduct {
   checkout: CheckoutConfig;
 }
 
+export interface StorefrontStats {
+  /** @minimum 0 */
+  visits: number;
+  /** @minimum 0 */
+  successfulPurchases: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  averageRating: number | null;
+  /** @minimum 0 */
+  reviewsCount: number;
+}
+
+export interface StorefrontReview {
+  id: string;
+  /**
+   * @minLength 2
+   * @maxLength 50
+   */
+  name: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /**
+   * @minLength 5
+   * @maxLength 500
+   */
+  text: string;
+  createdAt: string;
+}
+
+export interface StorefrontReviews {
+  /** @maxItems 10 */
+  reviews: StorefrontReview[];
+}
+
+export interface CreateStorefrontReviewInput {
+  /**
+   * @minLength 2
+   * @maxLength 50
+   */
+  name: string;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /**
+   * @minLength 5
+   * @maxLength 500
+   */
+  text: string;
+  /** @maxLength 0 */
+  website?: string;
+  /** @minimum 0 */
+  formStartedAt: number;
+}
+
+export interface CreateStorefrontReviewResult {
+  review: StorefrontReview;
+}
+
 export interface SteamQuoteInput {
   /**
    * @minLength 1
@@ -209,4 +275,12 @@ export type StorefrontSteamQuote200 = {
 
 export type StorefrontProduct200 = {
   product: StorefrontProduct;
+};
+
+export type StorefrontReviewsParams = {
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  limit?: number;
 };

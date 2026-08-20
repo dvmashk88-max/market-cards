@@ -8,6 +8,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import OrderCompletionCard from "@/components/OrderCompletionCard";
+import StorefrontTrust from "@/components/StorefrontTrust";
 import {
   fetchStorefrontCategories,
   fetchStorefrontProducts,
@@ -854,6 +855,8 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <StorefrontTrust />
 
         {/* ══ FAQ ═════════════════════════════════════════════════════ */}
         <section id="faq" className="py-14 px-4">
